@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import NumericKeypad from '../components/NumericKeypad.vue'
 import { api } from '../api'
 import {
@@ -8,11 +8,13 @@ import {
   getPendingDevCode,
   getPendingPhone,
   setPendingDevCode,
+  setPendingPhone,
   setSession,
 } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
 
+const route = useRoute()
 const router = useRouter()
 const phone = ref('')
 const codes = ref(['', '', '', '', '', ''])
@@ -32,12 +34,14 @@ function startCountdown() {
 }
 
 onMounted(() => {
-  phone.value = getPendingPhone()
+  const queryPhone = typeof route.query.phone === 'string' ? route.query.phone : ''
+  phone.value = queryPhone || getPendingPhone()
   if (!phone.value) {
     toast('请先输入电话号码')
     router.replace('/login')
     return
   }
+  setPendingPhone(phone.value)
   const cachedCode = getPendingDevCode()
   if (/^\d{6}$/.test(cachedCode)) {
     devCode.value = cachedCode

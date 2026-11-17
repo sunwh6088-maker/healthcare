@@ -27,10 +27,11 @@ async function continueFlow() {
   sending.value = true
   try {
     const result = await api.sendCode(value)
-    setPendingPhone(value.replace(/\s/g, ''))
+    const normalized = value.replace(/\s/g, '')
+    setPendingPhone(normalized)
     setPendingDevCode(result.devCode)
     toast(result.devCode ? `验证码已发送：${result.devCode}` : '验证码已发送')
-    router.push('/verify')
+    router.push({ path: '/verify', query: { phone: normalized } })
   } catch (error) {
     toast(error instanceof Error ? error.message : '发送验证码失败')
   } finally {

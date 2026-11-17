@@ -23,16 +23,17 @@ export function clearSession() {
   localStorage.removeItem(SESSION_KEY)
 }
 
+// 验证码页可能在刷新或新标签页中打开，手机号放在 localStorage 以便恢复
 export function setPendingPhone(phone: string) {
-  sessionStorage.setItem(PENDING_PHONE_KEY, phone)
+  localStorage.setItem(PENDING_PHONE_KEY, phone)
 }
 
 export function getPendingPhone() {
-  return sessionStorage.getItem(PENDING_PHONE_KEY) || ''
+  return localStorage.getItem(PENDING_PHONE_KEY) || ''
 }
 
 export function clearPendingPhone() {
-  sessionStorage.removeItem(PENDING_PHONE_KEY)
+  localStorage.removeItem(PENDING_PHONE_KEY)
 }
 
 export function setPendingDevCode(code?: string) {
