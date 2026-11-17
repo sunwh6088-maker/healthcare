@@ -4,7 +4,7 @@ Spring Boot 3.5 + MySQL 8 的最小后端，提供账号、健康数据和闹钟
 
 ## 技术栈
 
-- Java 21
+- Java 25 (LTS)
 - Spring Boot 3.5.16（Web / Data JPA / Validation）
 - MySQL 8.4
 - Maven

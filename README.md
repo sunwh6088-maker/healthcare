@@ -12,7 +12,7 @@
 
 ## 快速开始
 
-环境要求：Node.js 22+、Java 21、Maven、MySQL 8。
+环境要求：Node.js 22+、Java 25 (LTS)、Maven、MySQL 8。
 
 ```bash
 # 1) 初始化数据库（首次，需 MySQL root 密码）
