@@ -12,6 +12,8 @@ const props = defineProps<{
   open: boolean
   log?: ExerciseLog | null
   defaultType?: string
+  defaultMinutes?: number
+  defaultCalories?: number
 }>()
 
 const emit = defineEmits<{
@@ -59,8 +61,12 @@ watch(
     } else {
       type.value = props.defaultType || catalog.exerciseTypes[0]?.key || 'yoga'
       date.value = todayISO()
-      minutes.value = 30
-      recalcCalories()
+      minutes.value = props.defaultMinutes ?? 30
+      if (props.defaultCalories !== undefined) {
+        calories.value = props.defaultCalories
+      } else {
+        recalcCalories()
+      }
     }
     confirmDelete.value = false
     await nextTick()

@@ -1,6 +1,7 @@
 package com.healthcare.api.user;
 
 import com.healthcare.api.common.ApiException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,9 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository users;
+    private final JdbcTemplate jdbc;
 
-    public UserService(UserRepository users) {
+    public UserService(UserRepository users, JdbcTemplate jdbc) {
         this.users = users;
+        this.jdbc = jdbc;
     }
 
     public User get(Long userId) {
@@ -42,5 +45,19 @@ public class UserService {
         }
 
         return UserDto.from(users.save(user));
+    }
+
+    /**
+     * 注销账号：删除该用户的登录凭证、健康数据、闹钟、食物和运动记录。
+     */
+    @Transactional
+    public void deleteAccount(Long userId) {
+        get(userId);
+        jdbc.update("DELETE FROM auth_tokens WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM alarms WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM food_logs WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM exercise_logs WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM health_states WHERE user_id = ?", userId);
+        users.deleteById(userId);
     }
 }

@@ -1,42 +1,141 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+// 模块：运动时间 —— 按日/周/月展示真实运动时长。
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
 import { health, stepsToKcal, stepsToKm } from '../utils/healthStore'
+import { api, type ExerciseLog } from '../api'
 
 const router = useRouter()
-
-// 视图：周（深绿图表，默认）/ 日（灰绿图表卡）/ 月（同周数据）
 const view = ref<'day' | 'week' | 'month'>('week')
 const menuOpen = ref(false)
-const alarmOn = ref(false)
+const alarmOn = ref(localStorage.getItem('healthcare-exercise-reminder') === '1')
+const logs = ref<ExerciseLog[]>([])
 
-// 周视图柱状图（对照设计稿「运动时间 #1」：周一至周日柱高）
-const weekBars = [
-  { label: '周一', h: 165 },
-  { label: '周二', h: 84 },
-  { label: '周三', h: 131 },
-  { label: '周四', h: 110 },
-  { label: '周五', h: 153, hl: true },
-  { label: '周六', h: 125, hl: true },
-  { label: '周日', h: 46, hl: true },
-]
+const today = new Date()
+const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-// 日视图柱状图（对照设计稿「运动时间」：20-24/03，深绿柱 + 浅灰绿柱）
-const dayBars = [
-  { label: '20', h: 194 },
-  { label: '21', h: 99 },
-  { label: '22', h: 154 },
-  { label: '23', h: 129 },
-  { label: '3/24', h: 180 },
-  { label: '', h: 147, dim: true },
-  { label: '', h: 54, dim: true },
-  { label: '', h: 99, dim: true },
-  { label: '', h: 125, dim: true },
-]
+function startOfWeek(date: Date) {
+  const result = new Date(date)
+  const day = result.getDay()
+  result.setDate(result.getDate() + (day === 0 ? -6 : 1 - day))
+  result.setHours(0, 0, 0, 0)
+  return result
+}
 
-const axis = ['70', '60', '50', '40']
+function isoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const weekStart = startOfWeek(today)
+const weekDates = Array.from({ length: 7 }, (_, index) => {
+  const date = new Date(weekStart)
+  date.setDate(weekStart.getDate() + index)
+  return date
+})
+
+const minutesByDate = computed(() => {
+  const map = new Map<string, number>()
+  for (const log of logs.value) {
+    map.set(log.date, (map.get(log.date) ?? 0) + log.minutes)
+  }
+  return map
+})
+
+const todayMinutes = computed(() => minutesByDate.value.get(isoDate(today)) ?? 0)
+const weekTotal = computed(() =>
+  weekDates.reduce((sum, date) => sum + (minutesByDate.value.get(isoDate(date)) ?? 0), 0),
+)
+const monthTotal = computed(() => {
+  const cutoff = new Date(today)
+  cutoff.setDate(cutoff.getDate() - 27)
+  cutoff.setHours(0, 0, 0, 0)
+  return logs.value
+    .filter((log) => new Date(`${log.date}T00:00:00`) >= cutoff)
+    .reduce((sum, log) => sum + log.minutes, 0)
+})
+
+const weekData = computed(() =>
+  weekDates.map((date, index) => ({
+    label: weekDays[index],
+    minutes: minutesByDate.value.get(isoDate(date)) ?? 0,
+  })),
+)
+
+const monthData = computed(() => {
+  const buckets = [0, 0, 0, 0]
+  const thisWeek = startOfWeek(today)
+  for (const log of logs.value) {
+    const date = new Date(`${log.date}T00:00:00`)
+    const weeksAgo = Math.round(
+      (thisWeek.getTime() - startOfWeek(date).getTime()) / (7 * 24 * 60 * 60 * 1000),
+    )
+    if (weeksAgo >= 0 && weeksAgo < 4) {
+      buckets[3 - weeksAgo] += log.minutes
+    }
+  }
+  return buckets.map((minutes, index) => ({ label: `第${index + 1}周`, minutes }))
+})
+
+const lastDays = computed(() =>
+  Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today)
+    date.setDate(today.getDate() - (6 - index))
+    return {
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      minutes: minutesByDate.value.get(isoDate(date)) ?? 0,
+    }
+  }),
+)
+
+const chartData = computed(() => (view.value === 'month' ? monthData.value : weekData.value))
+const chartBars = computed(() => {
+  const max = Math.max(30, ...chartData.value.map((item) => item.minutes))
+  return chartData.value.map((item) => ({
+    label: item.label,
+    h: Math.max(6, Math.round((item.minutes / max) * 180)),
+    hl: item.minutes > 0,
+  }))
+})
+
+const dayBars = computed(() => {
+  const max = Math.max(30, ...lastDays.value.map((item) => item.minutes))
+  return lastDays.value.map((item) => ({
+    label: item.label,
+    h: Math.max(6, Math.round((item.minutes / max) * 180)),
+    dim: item.minutes === 0,
+  }))
+})
+
+const axis = computed(() => {
+  const source = view.value === 'day' ? lastDays.value : chartData.value
+  const max = Math.max(30, ...source.map((item) => item.minutes))
+  return [1, 0.75, 0.5, 0.25].map((factor) => String(Math.round(max * factor)))
+})
+
+const bigNum = computed(() =>
+  view.value === 'month' ? Math.round(monthTotal.value / 28) : Math.round(weekTotal.value / 7),
+)
+const dayMinutes = computed(() => todayMinutes.value)
+const dayTitle = computed(
+  () => `${today.getMonth() + 1}月${today.getDate()}日 ${weekdayNames[today.getDay()]}`,
+)
+const rangeText = computed(() => {
+  if (view.value === 'month') return '最近 4 周'
+  const start = weekDates[0]
+  const end = weekDates[6]
+  const endText =
+    start.getMonth() === end.getMonth()
+      ? `${end.getDate()}日`
+      : `${end.getMonth() + 1}月${end.getDate()}日`
+  return `${start.getMonth() + 1}月${start.getDate()}日 - ${endText}`
+})
+
 const isDark = computed(() => view.value !== 'day')
 
 const views = [
@@ -45,15 +144,26 @@ const views = [
   { key: 'month' as const, label: '月' },
 ]
 
-function pickView(v: 'day' | 'week' | 'month') {
-  view.value = v
+function pickView(next: 'day' | 'week' | 'month') {
+  view.value = next
   menuOpen.value = false
 }
 
 function toggleAlarm() {
   alarmOn.value = !alarmOn.value
-  toast(alarmOn.value ? '已设置运动提醒 ⏰' : '已关闭运动提醒')
+  localStorage.setItem('healthcare-exercise-reminder', alarmOn.value ? '1' : '0')
+  toast(alarmOn.value ? '已开启运动提醒 ⏰' : '已关闭运动提醒')
 }
+
+async function loadLogs() {
+  try {
+    logs.value = await api.listExerciseLogs()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '加载运动记录失败')
+  }
+}
+
+onMounted(loadLogs)
 </script>
 
 <template>
@@ -79,11 +189,11 @@ function toggleAlarm() {
         <!-- 日期范围（点击打开日/周/月菜单） -->
         <button class="range-row" @click="menuOpen = true">
           <span class="arrow">‹</span>
-          <span class="num range-text">1月4日 - 1月10日</span>
+          <span class="num range-text">{{ rangeText }}</span>
           <span class="arrow">›</span>
         </button>
 
-        <div class="big-num num">{{ health.activeMinutes }}/{{ health.activeGoalMinutes }}</div>
+        <div class="big-num num">{{ bigNum }}/{{ health.activeGoalMinutes }}</div>
         <div class="big-label">平均每日活跃时间</div>
 
         <!-- 柱状图 -->
@@ -93,13 +203,13 @@ function toggleAlarm() {
               <span v-for="v in axis" :key="v">{{ v }}</span>
             </div>
             <div class="bars">
-              <div v-for="(b, i) in weekBars" :key="i" class="bar-col">
+              <div v-for="(b, i) in chartBars" :key="i" class="bar-col">
                 <span class="bar" :class="{ hl: b.hl }" :style="{ height: b.h + 'px' }"></span>
               </div>
             </div>
           </div>
           <div class="x-axis num">
-            <span v-for="(b, i) in weekBars" :key="i">{{ b.label }}</span>
+            <span v-for="(b, i) in chartBars" :key="i">{{ b.label }}</span>
           </div>
         </div>
       </div>
@@ -124,10 +234,10 @@ function toggleAlarm() {
     <!-- 日视图（对照「运动时间」画板：灰绿图表卡） -->
     <template v-else>
       <div class="day-card card">
-        <button class="day-title num" @click="menuOpen = true">1月7日 星期四 ▾</button>
+        <button class="day-title num" @click="menuOpen = true">{{ dayTitle }} ▾</button>
 
         <div class="day-head">
-          <span class="num day-big">{{ health.activeMinutes }}/{{ health.activeGoalMinutes }}</span>
+          <span class="num day-big">{{ dayMinutes }}/{{ health.activeGoalMinutes }}</span>
           <span class="day-mins">分钟</span>
         </div>
 

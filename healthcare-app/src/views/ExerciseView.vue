@@ -7,13 +7,15 @@ import ExerciseLogSheet from '../components/ExerciseLogSheet.vue'
 import { catalog, catalogStatus, loadCatalog } from '../utils/catalog'
 import { health, syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
-import { api, type ExerciseLog } from '../api'
+import { api, type ExerciseLesson, type ExerciseLog } from '../api'
 import { todayISO } from '../utils/date'
 
 const router = useRouter()
 const tab = ref('yoga')
 const sheetOpen = ref(false)
 const editingLog = ref<ExerciseLog | null>(null)
+const coursesOpen = ref(false)
+const lessonDraft = ref<ExerciseLesson | null>(null)
 const todayLogs = ref<ExerciseLog[]>([])
 const loadingLogs = ref(false)
 
@@ -55,11 +57,20 @@ async function loadTodayLogs() {
 
 function openCreate() {
   editingLog.value = null
+  lessonDraft.value = null
   sheetOpen.value = true
 }
 
 function openEdit(log: ExerciseLog) {
   editingLog.value = log
+  lessonDraft.value = null
+  sheetOpen.value = true
+}
+
+function startLesson(lesson: ExerciseLesson) {
+  editingLog.value = null
+  lessonDraft.value = lesson
+  coursesOpen.value = false
   sheetOpen.value = true
 }
 
@@ -116,7 +127,7 @@ onMounted(async () => {
     <!-- 课程列表 -->
     <div class="between mt-20">
       <span class="section-title">课程</span>
-      <button class="green-link" @click="$toast('课程列表即将上线')">所有课程</button>
+      <button class="green-link" @click="coursesOpen = true">所有课程</button>
     </div>
 
     <div class="lessons mt-12">
@@ -180,11 +191,32 @@ onMounted(async () => {
     <ExerciseLogSheet
       :open="sheetOpen"
       :log="editingLog"
-      :default-type="active?.key"
+      :default-type="lessonDraft?.typeKey ?? active?.key"
+      :default-minutes="lessonDraft?.minutes"
+      :default-calories="lessonDraft?.calories"
       @close="sheetOpen = false"
       @saved="refreshAfterChange"
       @deleted="refreshAfterChange"
     />
+
+    <BottomSheet :open="coursesOpen" @close="coursesOpen = false">
+      <h3 class="sheet-title">所有课程</h3>
+      <div class="lessons">
+        <button
+          v-for="lesson in lessons"
+          :key="lesson.id"
+          class="lesson card"
+          @click="startLesson(lesson)"
+        >
+          <span class="l-emoji">{{ lesson.emoji }}</span>
+          <div class="l-info">
+            <h4>{{ lesson.title }}</h4>
+            <p>{{ lesson.level }} · {{ lesson.minutes }} 分钟 · {{ lesson.calories }} 千卡</p>
+          </div>
+          <span class="l-go">记录 ›</span>
+        </button>
+      </div>
+    </BottomSheet>
   </div>
 </template>
 

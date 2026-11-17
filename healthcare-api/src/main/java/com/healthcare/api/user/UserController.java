@@ -5,6 +5,7 @@ import com.healthcare.api.auth.AuthInterceptor;
 import com.healthcare.api.auth.AuthService;
 import com.healthcare.api.common.ApiResponse;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -45,6 +46,13 @@ public class UserController {
             @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
             @Valid @RequestBody AuthDtos.ChangePasswordRequest request) {
         authService.changePassword(userId, request);
+        return ApiResponse.ok();
+    }
+
+    @DeleteMapping
+    public ApiResponse<Void> deleteAccount(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId) {
+        userService.deleteAccount(userId);
         return ApiResponse.ok();
     }
 }

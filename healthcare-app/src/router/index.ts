@@ -68,6 +68,8 @@ const router = createRouter({
       name: 'account-security',
       component: () => import('../views/AccountSecurityView.vue'),
     },
+    { path: '/help', name: 'help', component: () => import('../views/HelpView.vue') },
+    { path: '/about', name: 'about', component: () => import('../views/AboutView.vue') },
     // 账户流程
     {
       path: '/forgot-password',
@@ -128,6 +130,8 @@ const pageTitles: Record<string, string> = {
   history: '历史',
   settings: '设置',
   'account-security': '账户与安全',
+  help: '帮助与反馈',
+  about: '关于我们',
   'forgot-password': '忘记密码',
   'change-password': '更改密码',
   'reset-password': '重置密码',

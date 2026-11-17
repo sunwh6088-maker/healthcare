@@ -127,7 +127,9 @@ healthcare-app/
 | ------------------- | ------------------- | ------------------------------------------------------------- |
 | `/history`          | HistoryView         | 读取后端运动记录，全部 / 星期 / 月份筛选                      |
 | `/settings`         | SettingsView        | 设置、通知 / 隐私开关、退出登录                               |
-| `/account-security` | AccountSecurityView | 账号信息（手机号 / 邮箱可修改）、安全设置、登录设备、注销入口 |
+| `/account-security` | AccountSecurityView | 账号信息（手机号 / 邮箱可修改）、安全设置、当前设备、注销账户 |
+| `/help`             | HelpView            | 常见问题、反馈入口和隐私提示                                  |
+| `/about`            | AboutView           | 版本、主要功能、技术栈、隐私说明和源码地址                    |
 | `/forgot-password`  | ForgotPasswordView  | 忘记密码（手机号 → 验证码）                                   |
 | `/change-password`  | ChangePasswordView  | 修改/首次设置密码（已接后端）                                 |
 | `/reset-password`   | ChangePasswordView  | 忘记密码验证码通过后重置密码，并自动登录                      |
@@ -200,4 +202,5 @@ docker compose up --build
 - 验证码默认留空；助眠声音可播放 / 暂停；纯图标按钮均补了 `aria-label`。
 - 代码规范：ESLint（Vue + TypeScript 扁平配置）+ Prettier；提交前可运行 `npm run lint` 与 `npm run format:check`。
 - 后端已实现验证码登录、密码登录 / 修改 / 重置、账号资料、健康数据与闹钟同步；「忘记密码 / 更改密码」已接后端，验证码重置成功后会直接登录。
-- 尚未实现：账户注销（当前为占位提示）、真实设备同步与通知推送；生产部署前需关闭 `APP_DEV_MODE`、接入短信服务并收紧 CORS。
+- 账户注销已支持（会级联删除登录凭证、健康数据、闹钟、食物和运动记录）；真实设备同步、系统通知推送和修改手机号的短信二次验证尚未接入。
+- 生产部署前需关闭 `APP_DEV_MODE`、接入短信服务并收紧 CORS。

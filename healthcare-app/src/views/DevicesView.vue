@@ -1,8 +1,11 @@
 <script setup lang="ts">
 // 模块：设备页 —— 设备目录、连接状态、电量和同步时间。
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { health } from '../utils/healthStore'
 import { catalog, loadCatalog } from '../utils/catalog'
+import { toast } from '../utils/toast'
+
+const addOpen = ref(false)
 
 const primaryDevice = computed(
   () => catalog.devices.find((device) => device.primary) ?? catalog.devices[0],
@@ -26,6 +29,13 @@ function toggleConnection() {
   if (health.deviceConnected) {
     health.deviceLastSyncAt = new Date().toISOString()
   }
+}
+
+function addDevice(name: string) {
+  health.deviceAdded = true
+  health.deviceLastSyncAt = new Date().toISOString()
+  addOpen.value = false
+  toast(`已添加 ${name} ✓`)
 }
 
 onMounted(() => {
@@ -74,11 +84,31 @@ onMounted(() => {
       </button>
     </div>
 
-    <button class="btn-ghost-add mt-20" @click="health.deviceAdded = !health.deviceAdded">
-      {{ health.deviceAdded ? '✓ 已添加' : '＋ 添加新设备' }}
+    <button class="btn-ghost-add mt-20" @click="addOpen = true">
+      {{ health.deviceAdded ? '✓ 添加更多设备' : '＋ 添加新设备' }}
     </button>
 
     <div class="tabbar-spacer"></div>
+
+    <BottomSheet :open="addOpen" @close="addOpen = false">
+      <h3 class="sheet-title">添加设备</h3>
+      <p class="add-tip">选择要连接的设备类型（当前为 Web 原型，真实同步需接入设备 SDK）。</p>
+      <div class="device-options">
+        <button
+          v-for="device in catalog.devices"
+          :key="device.id"
+          class="device-option card"
+          @click="addDevice(device.name)"
+        >
+          <span class="d-icon">{{ device.icon }}</span>
+          <span class="d-info">
+            <strong>{{ device.name }}</strong>
+            <small>{{ device.capabilities }}</small>
+          </span>
+          <span class="d-add">＋</span>
+        </button>
+      </div>
+    </BottomSheet>
   </div>
 </template>
 
@@ -185,6 +215,58 @@ onMounted(() => {
   margin-top: 2px;
   font-size: var(--fs-body2);
   color: var(--neutral-2);
+}
+
+.add-tip {
+  font-size: var(--fs-body2);
+  line-height: 1.6;
+  color: var(--neutral-2);
+  text-align: center;
+}
+
+.device-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.device-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.d-icon {
+  font-size: 28px;
+}
+
+.d-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.d-info strong {
+  font-size: var(--fs-headline3);
+}
+
+.d-info small {
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+}
+
+.d-add {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sync-btn {

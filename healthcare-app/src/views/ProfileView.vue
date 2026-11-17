@@ -70,7 +70,7 @@ const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
         <span class="m-label">设置</span>
         <span class="m-arrow">›</span>
       </button>
-      <button class="menu-row" @click="$toast('帮助中心即将上线')">
+      <button class="menu-row" @click="router.push('/help')">
         <span class="m-icon">❓</span>
         <span class="m-label">帮助与反馈</span>
         <span class="m-arrow">›</span>

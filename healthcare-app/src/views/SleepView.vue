@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 模块：睡眠页 —— 睡眠时长、闹钟管理和助眠声音。
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
@@ -64,9 +64,15 @@ const editRepeat = ref<number[]>([])
 const confirmDelete = ref(false)
 const soundPlaying = ref(false)
 const sound = computed(() => catalog.sleepSounds[0])
+let audioContext: AudioContext | null = null
+let ambientSource: AudioBufferSourceNode | null = null
 
 onMounted(() => {
   loadCatalog().catch(() => undefined)
+})
+
+onUnmounted(() => {
+  stopAmbient()
 })
 
 function toggleRepeat(day: number) {
@@ -148,9 +154,53 @@ function deleteAlarm() {
   closeSheet()
 }
 
+// 用 Web Audio 生成低频白噪音，无需额外音频文件
+function startAmbient() {
+  const AudioCtor =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!AudioCtor) {
+    toast('当前浏览器不支持音频播放')
+    return
+  }
+  audioContext = new AudioCtor()
+  void audioContext.resume()
+  const bufferSize = audioContext.sampleRate * 2
+  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.12
+  }
+  const source = audioContext.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  const filter = audioContext.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 900
+  source.connect(filter)
+  filter.connect(audioContext.destination)
+  source.start()
+  ambientSource = source
+}
+
+function stopAmbient() {
+  ambientSource?.stop()
+  ambientSource = null
+  void audioContext?.close().catch(() => undefined)
+  audioContext = null
+}
+
 function toggleSound() {
-  soundPlaying.value = !soundPlaying.value
-  toast(soundPlaying.value ? `正在播放：${sound.value?.name ?? '助眠声音'}` : '已暂停')
+  if (soundPlaying.value) {
+    stopAmbient()
+    soundPlaying.value = false
+    toast('已暂停')
+    return
+  }
+  startAmbient()
+  if (!audioContext) return
+  soundPlaying.value = true
+  toast(`正在播放：${sound.value?.name ?? '助眠声音'}`)
 }
 
 function setAlarm(a: Alarm, on: boolean) {

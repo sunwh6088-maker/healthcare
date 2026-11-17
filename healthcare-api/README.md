@@ -95,11 +95,12 @@ java -jar target/healthcare-api-0.0.1-SNAPSHOT.jar
 
 ### 账号（需要 `Authorization: Bearer <token>`）
 
-| 方法  | 路径               | 说明                                                                     |
-| ----- | ------------------ | ------------------------------------------------------------------------ |
-| GET   | `/api/me`          | 当前账号资料（含 `hasPassword`）                                         |
-| PATCH | `/api/me`          | 修改 `name` / `email` / `phone`，字段可选                                |
-| PUT   | `/api/me/password` | `{ "oldPassword": "…", "newPassword": "…" }`；首次设置可省略 oldPassword |
+| 方法   | 路径               | 说明                                                                     |
+| ------ | ------------------ | ------------------------------------------------------------------------ |
+| GET    | `/api/me`          | 当前账号资料（含 `hasPassword`）                                         |
+| PATCH  | `/api/me`          | 修改 `name` / `email` / `phone`，字段可选                                |
+| PUT    | `/api/me/password` | `{ "oldPassword": "…", "newPassword": "…" }`；首次设置可省略 oldPassword |
+| DELETE | `/api/me`          | 注销账号：级联删除 token、健康数据、闹钟、食物和运动记录                 |
 
 ### 基础数据（需要 token）
 

@@ -209,6 +209,10 @@ export const api = {
     })
   },
 
+  deleteMe() {
+    return request<void>('/me', { method: 'DELETE' })
+  },
+
   // 基础数据 + 健康状态
   getCatalog() {
     return request<CatalogResponse>('/catalog')

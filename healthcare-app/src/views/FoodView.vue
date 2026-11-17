@@ -1,9 +1,10 @@
 <script setup lang="ts">
 // 模块：食物页 —— 热量圆环、三餐记录和卡路里图表。
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
-import { health } from '../utils/healthStore'
+import { health, stepsToKcal } from '../utils/healthStore'
+import { catalog, loadCatalog } from '../utils/catalog'
 import { api, type FoodLog } from '../api'
 import { todayISO } from '../utils/date'
 import { mealEmoji, mealLabel } from '../utils/meals'
@@ -28,7 +29,9 @@ async function loadLogs() {
   }
 }
 
-onMounted(loadLogs)
+onMounted(() => {
+  void Promise.all([loadLogs(), loadCatalog().catch(() => undefined)])
+})
 
 async function removeLog(id: number) {
   try {
@@ -40,23 +43,52 @@ async function removeLog(id: number) {
   }
 }
 
-const macros = [
-  { name: '碳水', amount: '100g', pct: 32, color: '#2a6049' },
-  { name: '脂肪', amount: '100g', pct: 28, color: '#ec744a' },
-  { name: '蛋白质', amount: '90g', pct: 40, color: '#655eb0' },
-]
+const mealColors = ['#2a6049', '#ec744a', '#655eb0', '#f8c060']
 
-// 卡路里输入输出柱状图
-const calBars = [
-  { h: 56, color: '#2a6049' },
-  { h: 32, color: '#ececec' },
-  { h: 32, color: '#ececec' },
-  { h: 32, color: '#ececec' },
-  { h: 45, color: '#ec744a' },
-  { h: 38, color: '#ec744a' },
-  { h: 29, color: '#ec744a' },
-  { h: 53, color: '#ececec' },
-]
+// 按餐次汇总今日热量
+const mealTotals = computed(() => {
+  const totals = new Map<string, number>()
+  for (const log of logs.value) {
+    totals.set(log.meal, (totals.get(log.meal) ?? 0) + log.calories)
+  }
+  return catalog.meals.map((meal, index) => {
+    const kcal = totals.get(meal.key) ?? 0
+    return {
+      key: meal.key,
+      name: meal.label,
+      kcal,
+      color: mealColors[index % mealColors.length],
+      pct: totalCalories.value ? Math.round((kcal / totalCalories.value) * 100) : 0,
+    }
+  })
+})
+
+const donutGradient = computed(() => {
+  const total = mealTotals.value.reduce((sum, meal) => sum + meal.kcal, 0)
+  if (!total) return 'conic-gradient(#ececec 0 100%)'
+  let current = 0
+  const stops: string[] = []
+  for (const meal of mealTotals.value) {
+    const start = (current / total) * 100
+    current += meal.kcal
+    const end = (current / total) * 100
+    if (meal.kcal > 0) stops.push(`${meal.color} ${start}% ${end}%`)
+  }
+  return `conic-gradient(${stops.join(', ')})`
+})
+
+// 卡路里输入（各餐）与输出（步数消耗）柱状图
+const calBars = computed(() => {
+  const items = [
+    ...mealTotals.value.map((meal) => ({ label: meal.name, kcal: meal.kcal, color: meal.color })),
+    { label: '运动消耗', kcal: stepsToKcal(health.steps), color: '#ec744a' },
+  ]
+  const max = Math.max(1, ...items.map((item) => item.kcal))
+  return items.map((item) => ({
+    ...item,
+    h: Math.max(8, Math.round((item.kcal / max) * 56)),
+  }))
+})
 </script>
 
 <template>
@@ -67,22 +99,17 @@ const calBars = [
 
     <!-- 营养素环形图 -->
     <div class="donut-wrap card mt-8">
-      <div
-        class="donut"
-        :style="{
-          background: 'conic-gradient(#2a6049 0 32%, #ec744a 32% 60%, #655eb0 60% 100%)',
-        }"
-      >
+      <div class="donut" :style="{ background: donutGradient }">
         <div class="donut-hole">
           <span class="num total">{{ totalCalories.toLocaleString() }}</span>
           <span class="unit">千卡</span>
         </div>
       </div>
       <div class="legend">
-        <div v-for="m in macros" :key="m.name" class="legend-row">
+        <div v-for="m in mealTotals" :key="m.key" class="legend-row">
           <span class="l-dot" :style="{ background: m.color }"></span>
           <span class="l-name">{{ m.name }}</span>
-          <span class="num l-amount">{{ m.amount }}</span>
+          <span class="num l-amount">{{ m.kcal }} 千卡</span>
           <span class="num l-pct">{{ m.pct }}%</span>
         </div>
       </div>
@@ -121,15 +148,16 @@ const calBars = [
             v-for="(b, i) in calBars"
             :key="i"
             class="cal-bar"
+            :title="`${b.label}：${b.kcal} 千卡`"
             :style="{ height: b.h + 'px', background: b.color }"
           ></span>
         </div>
       </div>
       <div class="cal-legend">
-        <span class="cl"><i style="background: #2a6049"></i>达标</span>
-        <span class="cl"><i style="background: #ec744a"></i>不足</span>
-        <span class="cl"><i style="background: #655eb0"></i>超出</span>
-        <span class="cl"><i style="background: #ec744a"></i>消耗卡路里</span>
+        <span v-for="meal in mealTotals" :key="meal.key" class="cl">
+          <i :style="{ background: meal.color }"></i>{{ meal.name }}
+        </span>
+        <span class="cl"><i style="background: #ec744a"></i>运动消耗</span>
       </div>
     </div>
 

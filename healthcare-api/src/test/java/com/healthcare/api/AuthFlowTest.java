@@ -257,5 +257,13 @@ class AuthFlowTest {
         Map<?, ?> stateAfterFoodData = (Map<?, ?>) stateAfterFood.getBody().get("data");
         Map<?, ?> healthAfterFood = (Map<?, ?>) stateAfterFoodData.get("health");
         assertThat(healthAfterFood.get("foodKcal")).isEqualTo(100);
+
+        // 注销账号：数据级联删除，旧 token 失效
+        ResponseEntity<Map> deleteAccount = rest.exchange(
+                base + "/api/me", HttpMethod.DELETE, new HttpEntity<>(headers), Map.class);
+        assertThat(deleteAccount.getStatusCode().value()).isEqualTo(200);
+        ResponseEntity<String> afterDelete = rest.exchange(
+                base + "/api/me", HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        assertThat(afterDelete.getStatusCode().value()).isEqualTo(401);
     }
 }

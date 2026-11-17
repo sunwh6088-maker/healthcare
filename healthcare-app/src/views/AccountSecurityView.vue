@@ -1,16 +1,53 @@
 <script setup lang="ts">
 // 模块：账户与安全 —— 手机号/邮箱、密码、设备与注销入口。
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
-import { health } from '../utils/healthStore'
+import { health, stopRemoteSync } from '../utils/healthStore'
+import { clearSession } from '../utils/session'
 import { isValidEmail, isValidPhone, maskPhone } from '../utils/validation'
 import { api } from '../api'
 
 const router = useRouter()
 
 const maskedPhone = computed(() => maskPhone(health.accountPhone))
+const hasPassword = ref<boolean | null>(null)
+const deleteOpen = ref(false)
+const deleteText = ref('')
+const deleting = ref(false)
+
+const deviceLabel = computed(() => {
+  const ua = navigator.userAgent
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /Chrome\//.test(ua)
+      ? 'Chrome'
+      : /Firefox\//.test(ua)
+        ? 'Firefox'
+        : /Safari\//.test(ua)
+          ? 'Safari'
+          : '浏览器'
+  const system = /Windows NT 10/.test(ua)
+    ? 'Windows'
+    : /Mac OS X/.test(ua)
+      ? 'macOS'
+      : /Android/.test(ua)
+        ? 'Android'
+        : /iPhone|iPad/.test(ua)
+          ? 'iOS'
+          : '本机'
+  return `${system} · ${browser}`
+})
+
+onMounted(async () => {
+  try {
+    const user = await api.me()
+    hasPassword.value = user.hasPassword
+  } catch {
+    // 资料加载失败时保留占位
+  }
+})
 
 type EditField = 'name' | 'phone' | 'email'
 const editField = ref<EditField | null>(null)
@@ -97,8 +134,23 @@ async function saveEdit() {
   }
 }
 
-function placeholder(msg: string) {
-  toast(msg)
+async function deleteAccount() {
+  if (deleteText.value.trim() !== '注销') {
+    toast('请输入「注销」确认')
+    return
+  }
+  deleting.value = true
+  try {
+    await api.deleteMe()
+    stopRemoteSync()
+    clearSession()
+    toast('账户已注销')
+    router.replace('/login')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '注销失败')
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -141,16 +193,13 @@ function placeholder(msg: string) {
     <div class="menu card mt-12">
       <button class="row" @click="router.push('/change-password')">
         <span class="r-label">登录密码</span>
-        <span class="r-value">已设置</span>
+        <span class="r-value">
+          {{ hasPassword === null ? '…' : hasPassword ? '已设置' : '去设置' }}
+        </span>
         <span class="r-arrow">›</span>
       </button>
       <button class="row" @click="router.push('/forgot-password')">
         <span class="r-label">忘记密码</span>
-        <span class="r-arrow">›</span>
-      </button>
-      <button class="row" @click="router.push('/devices')">
-        <span class="r-label">已登录设备</span>
-        <span class="r-value">1 台</span>
         <span class="r-arrow">›</span>
       </button>
     </div>
@@ -159,12 +208,12 @@ function placeholder(msg: string) {
     <div class="device card mt-16">
       <span class="d-dot"></span>
       <div class="d-info">
-        <h4>Windows 11 · Edge</h4>
+        <h4>{{ deviceLabel }}</h4>
         <p>当前设备 · 刚刚活跃</p>
       </div>
     </div>
 
-    <button class="danger mt-24" @click="placeholder('演示原型：账户注销待接入')">注销账户</button>
+    <button class="danger mt-24" @click="deleteOpen = true">注销账户</button>
     <p class="danger-tip">注销后所有健康数据将被清除，且无法恢复</p>
 
     <!-- 修改手机号 / 邮箱 -->
@@ -190,6 +239,28 @@ function placeholder(msg: string) {
         >
           {{ saving ? '保存中...' : '保存' }}
         </button>
+      </div>
+    </BottomSheet>
+
+    <!-- 注销账户确认 -->
+    <BottomSheet :open="deleteOpen" @close="deleteOpen = false">
+      <h3 class="sheet-title">注销账户</h3>
+      <p class="delete-warning">
+        注销后将删除全部健康数据、食物与运动记录，且无法恢复。请输入「注销」确认。
+      </p>
+      <label class="sheet-field">
+        <span class="sheet-key">确认文字</span>
+        <input v-model="deleteText" class="sheet-input" placeholder="请输入：注销" />
+      </label>
+      <div class="sheet-actions">
+        <button
+          class="sheet-delete"
+          :disabled="deleting || deleteText.trim() !== '注销'"
+          @click="deleteAccount"
+        >
+          {{ deleting ? '注销中...' : '确认注销' }}
+        </button>
+        <button class="btn-primary" @click="deleteOpen = false">取消</button>
       </div>
     </BottomSheet>
   </div>
@@ -298,6 +369,13 @@ function placeholder(msg: string) {
   margin-top: 2px;
   font-size: var(--fs-body2);
   color: var(--neutral-2);
+}
+
+.delete-warning {
+  font-size: var(--fs-body2);
+  line-height: 1.6;
+  color: var(--neutral-2);
+  text-align: center;
 }
 
 .danger {
