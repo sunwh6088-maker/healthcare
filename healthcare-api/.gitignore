@@ -1,0 +1,6 @@
+target/
+.mysql-data/
+.idea/
+*.iml
+.vscode/
+.DS_Store

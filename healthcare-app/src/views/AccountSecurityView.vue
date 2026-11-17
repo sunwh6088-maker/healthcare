@@ -1,0 +1,319 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { goBack } from '../utils/navigation'
+import { toast } from '../utils/toast'
+import { health } from '../utils/healthStore'
+import { isValidEmail, isValidPhone, maskPhone } from '../utils/validation'
+import { api } from '../api'
+
+const router = useRouter()
+
+const maskedPhone = computed(() => maskPhone(health.accountPhone))
+
+type EditField = 'name' | 'phone' | 'email'
+const editField = ref<EditField | null>(null)
+const editValue = ref('')
+const saving = ref(false)
+
+const sheetTitle = computed(() =>
+  editField.value === 'name' ? '修改昵称' : editField.value === 'phone' ? '修改手机号' : '修改邮箱',
+)
+const sheetKey = computed(() =>
+  editField.value === 'name' ? '昵称' : editField.value === 'phone' ? '手机号' : '邮箱',
+)
+const sheetType = computed(() =>
+  editField.value === 'name' ? 'text' : editField.value === 'phone' ? 'tel' : 'email',
+)
+const sheetPlaceholder = computed(() =>
+  editField.value === 'name'
+    ? '请输入昵称'
+    : editField.value === 'phone'
+      ? '请输入手机号'
+      : '请输入邮箱',
+)
+
+function openEdit(field: EditField) {
+  editField.value = field
+  editValue.value =
+    field === 'name'
+      ? health.userName
+      : field === 'phone'
+        ? health.accountPhone
+        : health.accountEmail
+}
+
+function closeEdit() {
+  editField.value = null
+}
+
+async function saveEdit() {
+  if (!editField.value) return
+  const value = editValue.value.trim()
+  if (editField.value === 'name') {
+    if (!value) {
+      toast('昵称不能为空')
+      return
+    }
+    if (value.length > 64) {
+      toast('昵称不能超过 64 个字符')
+      return
+    }
+  }
+  if (editField.value === 'phone' && !isValidPhone(value)) {
+    toast('请输入有效的电话号码')
+    return
+  }
+  if (editField.value === 'email' && !isValidEmail(value)) {
+    toast('请输入有效的邮箱地址')
+    return
+  }
+
+  saving.value = true
+  try {
+    const payload =
+      editField.value === 'name'
+        ? { name: value }
+        : editField.value === 'phone'
+          ? { phone: value }
+          : { email: value }
+    const user = await api.updateMe(payload)
+    health.userName = user.name
+    health.accountPhone = user.phone
+    health.accountEmail = user.email
+    toast(
+      editField.value === 'name'
+        ? '昵称已更新'
+        : editField.value === 'phone'
+          ? '手机号已更新'
+          : '邮箱已更新',
+    )
+    closeEdit()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '更新失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+function placeholder(msg: string) {
+  toast(msg)
+}
+</script>
+
+<template>
+  <div class="account">
+    <StatusBar />
+
+    <NavBar title="账户与安全" @back="goBack(router, '/settings')" />
+
+    <!-- 账号概览 -->
+    <div class="hero card">
+      <div class="avatar">🧑</div>
+      <div class="hero-info">
+        <h2>{{ health.userName }}</h2>
+        <p class="num">{{ maskedPhone }}</p>
+      </div>
+      <span class="badge">已验证</span>
+    </div>
+
+    <h3 class="section-title mt-20">账号信息</h3>
+    <div class="menu card mt-12">
+      <button class="row" @click="openEdit('name')">
+        <span class="r-label">昵称</span>
+        <span class="r-value">{{ health.userName }}</span>
+        <span class="r-arrow">›</span>
+      </button>
+      <button class="row" @click="openEdit('phone')">
+        <span class="r-label">手机号</span>
+        <span class="r-value num">{{ maskedPhone }}</span>
+        <span class="r-arrow">›</span>
+      </button>
+      <button class="row" @click="openEdit('email')">
+        <span class="r-label">邮箱</span>
+        <span class="r-value">{{ health.accountEmail }}</span>
+        <span class="r-arrow">›</span>
+      </button>
+    </div>
+
+    <h3 class="section-title mt-20">安全设置</h3>
+    <div class="menu card mt-12">
+      <button class="row" @click="router.push('/change-password')">
+        <span class="r-label">登录密码</span>
+        <span class="r-value">已设置</span>
+        <span class="r-arrow">›</span>
+      </button>
+      <button class="row" @click="router.push('/forgot-password')">
+        <span class="r-label">忘记密码</span>
+        <span class="r-arrow">›</span>
+      </button>
+      <button class="row" @click="router.push('/devices')">
+        <span class="r-label">已登录设备</span>
+        <span class="r-value">1 台</span>
+        <span class="r-arrow">›</span>
+      </button>
+    </div>
+
+    <!-- 当前登录设备 -->
+    <div class="device card mt-16">
+      <span class="d-dot"></span>
+      <div class="d-info">
+        <h4>Windows 11 · Edge</h4>
+        <p>当前设备 · 刚刚活跃</p>
+      </div>
+    </div>
+
+    <button class="danger mt-24" @click="placeholder('演示原型：账户注销待接入')">注销账户</button>
+    <p class="danger-tip">注销后所有健康数据将被清除，且无法恢复</p>
+
+    <!-- 修改手机号 / 邮箱 -->
+    <BottomSheet :open="editField !== null" @close="closeEdit">
+      <h3 class="sheet-title">{{ sheetTitle }}</h3>
+
+      <label class="sheet-field">
+        <span class="sheet-key">{{ sheetKey }}</span>
+        <input
+          v-model="editValue"
+          class="sheet-input"
+          :type="sheetType"
+          :placeholder="sheetPlaceholder"
+        />
+      </label>
+
+      <div class="sheet-actions">
+        <button
+          class="btn-primary"
+          :class="{ disabled: saving }"
+          :disabled="saving"
+          @click="saveEdit"
+        >
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
+      </div>
+    </BottomSheet>
+  </div>
+</template>
+
+<style scoped>
+.account {
+  padding: 0 24px 24px;
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.hero-info h2 {
+  font-size: var(--fs-headline2);
+  font-weight: 700;
+}
+
+.hero-info p {
+  margin-top: 2px;
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+}
+
+.badge {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--white);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+
+.menu {
+  overflow: hidden;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--neutral-3);
+  text-align: left;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.r-label {
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+}
+
+.r-value {
+  margin-left: auto;
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+}
+
+.r-arrow {
+  font-size: 22px;
+  color: var(--neutral-2);
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.d-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+
+.d-info h4 {
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+}
+
+.d-info p {
+  margin-top: 2px;
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+}
+
+.danger {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--accent);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+}
+
+.danger-tip {
+  margin-top: 10px;
+  text-align: center;
+  font-size: var(--fs-caption);
+  color: var(--neutral-2);
+}
+</style>

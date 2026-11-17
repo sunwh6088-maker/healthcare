@@ -1,0 +1,29 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - "healthcare-app/**"
+      - ".github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "healthcare-app/**"
+      - ".github/workflows/frontend-ci.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: healthcare-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: healthcare-app/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build

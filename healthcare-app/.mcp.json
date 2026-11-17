@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "jsdesign": {
+      "command": "npx",
+      "args": ["-y", "jsdesign-mcp"]
+    }
+  }
+}

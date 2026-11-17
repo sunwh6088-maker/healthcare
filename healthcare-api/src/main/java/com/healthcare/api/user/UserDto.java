@@ -1,0 +1,19 @@
+package com.healthcare.api.user;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public record UserDto(Long id, String name, String phone, String email, boolean hasPassword) {
+
+    public static UserDto from(User user) {
+        boolean hasPassword = user.getPasswordHash() != null && !user.getPasswordHash().isBlank();
+        return new UserDto(user.getId(), user.getName(), user.getPhone(), user.getEmail(), hasPassword);
+    }
+
+    public record UpdateRequest(
+            @Size(max = 64, message = "昵称不能超过 64 个字符") String name,
+            @Email(message = "邮箱格式不正确") @Size(max = 128, message = "邮箱过长") String email,
+            @Pattern(regexp = "^[0-9\\s]{7,20}$", message = "手机号格式不正确") String phone) {
+    }
+}

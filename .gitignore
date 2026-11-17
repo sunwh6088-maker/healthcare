@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+dist/
+target/
+.mysql-data/
+
+# 本地配置与密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log
+*.bak
+
+# 编辑器 / 系统
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ui-tools 生成物（设计稿解析与截图，可用脚本重新生成）
+ui-tools/slices/
+ui-tools/sketch-extract/
+ui-tools/*.png

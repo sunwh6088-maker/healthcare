@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: healthcare-api
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/healthcare?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8}
+    username: ${DB_USER:healthcare}
+    password: ${DB_PASSWORD:healthcare_dev}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Shanghai
+
+app:
+  dev-mode: ${APP_DEV_MODE:true}
+  token-ttl-days: ${APP_TOKEN_TTL_DAYS:7}

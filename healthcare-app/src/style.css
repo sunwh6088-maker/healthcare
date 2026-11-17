@@ -1,0 +1,439 @@
+/* ============================================================
+   健康管理 APP 设计规范（从 Sketch 源文件提取）
+   画板: 390x844 · 字体: SF Pro Display / PingFang SC
+   ============================================================ */
+:root {
+  /* 色板 Color Style */
+  --primary: #2a6049; /* Primary/1 深绿 */
+  --primary-2: #bacac2; /* Primary/2 灰绿(图表底色) */
+  --accent: #ec744a; /* Accent/1 橙 */
+  --accent-2: #ffe2d3; /* Accent/2 蜜桃 */
+  --neutral: #140c07; /* Neutral/1 近黑(主文字) */
+  --neutral-2: #bfc0c0; /* Neutral/2 灰(次要文字) */
+  --neutral-3: #ececec; /* Neutral/3 浅灰(分割/未激活) */
+  --semantic-1: #655eb0; /* Semantic/1 紫 */
+  --semantic-2: #f8c060; /* Semantic/2 黄 */
+  --semantic-3: #d2d0e8; /* Semantic/3 薰衣草 */
+  --semantic-4: #fdedd0; /* Semantic/4 浅黄 */
+  --white: #ffffff;
+
+  /* 文字体系 Text Style (SF Pro Display) */
+  --fs-title1: 40px;
+  --lh-title1: 64px;
+  --fs-title2: 32px;
+  --lh-title2: 52px;
+  --fs-title3: 24px;
+  --lh-title3: 40px;
+  --fs-headline1: 20px;
+  --lh-headline1: 32px;
+  --fs-headline2: 18px;
+  --lh-headline2: 28px;
+  --fs-headline3: 16px;
+  --lh-headline3: 24px;
+  --fs-body1: 16px;
+  --lh-body1: 24px;
+  --fs-body2: 14px;
+  --lh-body2: 20px;
+  --fs-caption: 12px;
+  --lh-caption: 20px;
+  --fs-button: 18px;
+  --lh-button: 28px;
+
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+  --radius-pill: 999px;
+  --shadow-card: 0 2px 12px rgba(20, 12, 7, 0.05);
+  --tabbar-h: 72px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family:
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Noto Sans SC',
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  background: #d9d9d9;
+  color: var(--neutral);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+input {
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
+ul,
+ol {
+  list-style: none;
+}
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.num {
+  font-family:
+    'SF Pro Display',
+    'SF Pro Text',
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+/* ===== 手机外框 ===== */
+.phone-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 24px;
+}
+
+.phone {
+  position: relative;
+  width: 390px;
+  height: 844px;
+  background: var(--white);
+  border-radius: 44px;
+  box-shadow:
+    0 24px 64px rgba(20, 12, 7, 0.3),
+    0 0 0 10px #1a1a1a,
+    0 0 0 12px #444;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-screen {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  position: relative;
+  background: var(--white);
+}
+
+/* 移动端（真机/窄屏）：去掉手机外框，直接全屏铺满 */
+@media (max-width: 640px) {
+  .phone-wrap {
+    padding: 0;
+  }
+  .phone {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+.phone-screen::-webkit-scrollbar {
+  display: none;
+}
+
+.tabbar-spacer {
+  height: calc(var(--tabbar-h) + 20px);
+}
+
+/* ===== 状态栏 ===== */
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 28px 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.statusbar .sb-icons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ===== 通用 ===== */
+.page {
+  padding: 0 24px 24px;
+}
+.section-title {
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  line-height: var(--lh-headline3);
+}
+.section-sub {
+  font-size: var(--fs-body2);
+  line-height: var(--lh-body2);
+  color: var(--neutral-2);
+}
+.green-link {
+  color: var(--primary);
+  font-size: var(--fs-body2);
+}
+.orange-link {
+  color: var(--accent);
+  font-size: var(--fs-body2);
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--white);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+.btn-primary:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+.btn-primary.disabled {
+  background: var(--neutral-3);
+  color: var(--neutral-2);
+}
+
+/* 分段胶囊选择器 */
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+.segmented .seg {
+  flex-shrink: 0;
+  padding: 8px 20px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-headline3);
+  color: var(--neutral-2);
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.segmented .seg.active {
+  background: var(--primary);
+  color: var(--white);
+  font-weight: 600;
+}
+
+/* 顶部导航 */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+}
+.navbar .nav-title {
+  font-size: var(--fs-headline2);
+  font-weight: 700;
+}
+
+/* 独立返回按钮（无 NavBar 的引导/登录页使用） */
+.back-top {
+  align-self: flex-start;
+  margin-top: 12px;
+}
+
+/* 底部标签栏 */
+.tabbar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  height: var(--tabbar-h);
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 6px 24px rgba(20, 12, 7, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 12px;
+  z-index: 10;
+}
+.tabbar .tab {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: 20px;
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  color: var(--neutral-2);
+  transition: all 0.18s ease;
+}
+.tabbar .tab .tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.tabbar .tab .tab-label {
+  display: none;
+  white-space: nowrap;
+}
+.tabbar .tab.router-link-exact-active {
+  min-width: 100px;
+  padding: 0 16px;
+  background: var(--primary);
+  color: var(--white);
+}
+.tabbar .tab.router-link-exact-active .tab-label {
+  display: inline;
+}
+
+/* 卡片 */
+.card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* 进度条 */
+.progress-track {
+  background: var(--white);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+/* 工具类 */
+.row {
+  display: flex;
+  align-items: center;
+}
+.between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mt-8 {
+  margin-top: 8px;
+}
+.mt-12 {
+  margin-top: 12px;
+}
+.mt-16 {
+  margin-top: 16px;
+}
+.mt-20 {
+  margin-top: 20px;
+}
+.mt-24 {
+  margin-top: 24px;
+}
+.gap-8 {
+  gap: 8px;
+}
+.gap-12 {
+  gap: 12px;
+}
+.gap-16 {
+  gap: 16px;
+}
+
+/* ===== 底部弹层内容（配合 BottomSheet 组件） ===== */
+.sheet-title {
+  text-align: center;
+  font-size: var(--fs-headline2);
+  font-weight: 700;
+}
+.sheet-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sheet-key {
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+}
+.sheet-input {
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: #f7f9f8;
+  padding: 0 14px;
+  font-size: var(--fs-headline3);
+  color: var(--neutral);
+}
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+.sheet-delete {
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-2);
+  color: var(--accent);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+}
+
+/* ===== 全局轻提示 Toast ===== */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  transform: translateX(-50%);
+  background: rgba(20, 12, 7, 0.85);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  z-index: 999;
+  white-space: nowrap;
+  animation: toast-in 0.2s ease;
+  pointer-events: none;
+}
+
+.toast.toast-fixed {
+  position: fixed;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
