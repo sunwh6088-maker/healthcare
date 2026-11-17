@@ -170,7 +170,10 @@ java -jar target/healthcare-api-0.0.1-SNAPSHOT.jar
 | ------ | ------------------------- | -------------------------------------------------------------------------- |
 | GET    | `/api/exercise-logs`      | 当前用户的运动记录，按日期倒序                                             |
 | POST   | `/api/exercise-logs`      | `{ "date": "2026-11-13", "type": "yoga", "minutes": 30, "calories": 320 }` |
+| PUT    | `/api/exercise-logs/{id}` | 编辑一条运动记录，请求体同 POST                                            |
 | DELETE | `/api/exercise-logs/{id}` | 删除一条运动记录                                                           |
+
+新增、编辑或删除运动记录后，后端会按 `exercise_logs` 重新汇总 `health_states.active_minutes` 和 `exercise_count`。
 
 运动类型：`yoga` / `walk` / `run` / `ride`。
 

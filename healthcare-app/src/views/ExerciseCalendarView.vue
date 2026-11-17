@@ -1,31 +1,86 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { health, stepsToKcal, stepsToKm } from '../utils/healthStore'
+import { api, type ExerciseLog } from '../api'
+import { toast } from '../utils/toast'
 
 const router = useRouter()
-
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-// 2021年1月4日-10日（周一至周日）
-const days = [
-  { d: 4, active: true },
-  { d: 5, active: false },
-  { d: 6, active: true },
-  { d: 7, active: true },
-  { d: 8, active: false },
-  { d: 9, active: true },
-  { d: 10, active: false },
-]
+const logs = ref<ExerciseLog[]>([])
 
-const bars = [
-  { h: 42, active: true },
-  { h: 24, active: false },
-  { h: 56, active: true },
-  { h: 48, active: true },
-  { h: 18, active: false },
-  { h: 32, active: false },
-  { h: 12, active: false },
-]
+// 本周（周一至周日）
+const weekDates = (() => {
+  const today = new Date()
+  const day = today.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  const start = new Date(today)
+  start.setDate(today.getDate() + diff)
+  start.setHours(0, 0, 0, 0)
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start)
+    date.setDate(start.getDate() + index)
+    return date
+  })
+})()
+
+function isoDate(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const minutesByDate = computed(() => {
+  const map = new Map<string, number>()
+  for (const log of logs.value) {
+    map.set(log.date, (map.get(log.date) ?? 0) + log.minutes)
+  }
+  return map
+})
+
+const days = computed(() =>
+  weekDates.map((date) => {
+    const iso = isoDate(date)
+    const minutes = minutesByDate.value.get(iso) ?? 0
+    return { d: date.getDate(), iso, minutes, active: minutes > 0 }
+  }),
+)
+
+const bars = computed(() =>
+  days.value.map((day) => ({
+    h: Math.min(60, Math.max(8, Math.round(day.minutes * 1.2))),
+    active: day.active,
+  })),
+)
+
+const weekMinutes = computed(() => days.value.reduce((sum, day) => sum + day.minutes, 0))
+const avgDaily = computed(() => Math.round(weekMinutes.value / 7))
+const rangeText = computed(() => {
+  const start = weekDates[0]
+  const end = weekDates[6]
+  const startText = `${start.getMonth() + 1}月${start.getDate()}日`
+  const endText =
+    start.getMonth() === end.getMonth()
+      ? `${end.getDate()}日`
+      : `${end.getMonth() + 1}月${end.getDate()}日`
+  return `${startText} - ${endText}`
+})
+
+function showDay(day: { iso: string; minutes: number }) {
+  toast(`${day.iso}：${day.minutes} 分钟`)
+}
+
+async function loadLogs() {
+  try {
+    logs.value = await api.listExerciseLogs()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '加载运动记录失败')
+  }
+}
+
+onMounted(loadLogs)
 </script>
 
 <template>
@@ -40,15 +95,21 @@ const bars = [
 
     <!-- 绿色日历卡片 -->
     <div class="cal-card">
-      <p class="cal-range num">1月4日 - 1月10日</p>
+      <p class="cal-range num">{{ rangeText }}</p>
       <div class="cal-big">
-        <span class="num big">{{ health.activeMinutes }}/{{ health.activeGoalMinutes }}</span>
+        <span class="num big">{{ avgDaily }}/{{ health.activeGoalMinutes }}</span>
         <span class="avg">平均每日活跃时间</span>
       </div>
 
       <div class="cal-grid">
         <span v-for="w in weekDays" :key="w" class="num wd">{{ w }}</span>
-        <button v-for="d in days" :key="d.d" class="day" :class="{ active: d.active }">
+        <button
+          v-for="d in days"
+          :key="d.iso"
+          class="day"
+          :class="{ active: d.active }"
+          @click="showDay(d)"
+        >
           {{ d.d }}
         </button>
       </div>

@@ -204,10 +204,53 @@ class AuthFlowTest {
                 new HttpEntity<>(exercise, headers),
                 Map.class);
         assertThat(exerciseCreate.getStatusCode().value()).isEqualTo(200);
+        Map<?, ?> createdExercise = (Map<?, ?>) exerciseCreate.getBody().get("data");
+        long exerciseId = ((Number) createdExercise.get("id")).longValue();
 
         ResponseEntity<Map> exerciseList = rest.exchange(
                 base + "/api/exercise-logs", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         assertThat((List<?>) exerciseList.getBody().get("data")).hasSize(1);
+
+        // 编辑运动记录，并验证活动时长/次数按记录重新汇总
+        Map<String, Object> exerciseUpdate = new HashMap<>();
+        exerciseUpdate.put("date", today);
+        exerciseUpdate.put("type", "walk");
+        exerciseUpdate.put("minutes", 45);
+        exerciseUpdate.put("calories", 280);
+        ResponseEntity<Map> exerciseUpdated = rest.exchange(
+                base + "/api/exercise-logs/" + exerciseId,
+                HttpMethod.PUT,
+                new HttpEntity<>(exerciseUpdate, headers),
+                Map.class);
+        assertThat(exerciseUpdated.getStatusCode().value()).isEqualTo(200);
+        Map<?, ?> updatedExercise = (Map<?, ?>) exerciseUpdated.getBody().get("data");
+        assertThat(updatedExercise.get("type")).isEqualTo("walk");
+        assertThat(updatedExercise.get("minutes")).isEqualTo(45);
+        assertThat(updatedExercise.get("calories")).isEqualTo(280);
+
+        ResponseEntity<Map> stateAfterExercise = rest.exchange(
+                base + "/api/state", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        Map<?, ?> exerciseHealth =
+                (Map<?, ?>) ((Map<?, ?>) stateAfterExercise.getBody().get("data")).get("health");
+        assertThat(exerciseHealth.get("activeMinutes")).isEqualTo(45);
+        assertThat(exerciseHealth.get("exerciseCount")).isEqualTo(1);
+
+        // 删除后汇总归零
+        ResponseEntity<Map> exerciseDelete = rest.exchange(
+                base + "/api/exercise-logs/" + exerciseId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                Map.class);
+        assertThat(exerciseDelete.getStatusCode().value()).isEqualTo(200);
+        ResponseEntity<Map> exerciseListAfterDelete = rest.exchange(
+                base + "/api/exercise-logs", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        assertThat((List<?>) exerciseListAfterDelete.getBody().get("data")).isEmpty();
+        ResponseEntity<Map> stateAfterExerciseDelete = rest.exchange(
+                base + "/api/state", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        Map<?, ?> healthAfterExerciseDelete =
+                (Map<?, ?>) ((Map<?, ?>) stateAfterExerciseDelete.getBody().get("data")).get("health");
+        assertThat(healthAfterExerciseDelete.get("activeMinutes")).isEqualTo(0);
+        assertThat(healthAfterExerciseDelete.get("exerciseCount")).isEqualTo(0);
 
         ResponseEntity<Map> stateAfterFood = rest.exchange(
                 base + "/api/state", HttpMethod.GET, new HttpEntity<>(headers), Map.class);

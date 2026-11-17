@@ -14,6 +14,7 @@ target/
 *.bak
 
 # 编辑器 / 系统
+/.vscode/
 .idea/
 .DS_Store
 Thumbs.db

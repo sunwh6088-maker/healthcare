@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
-import { health } from '../utils/healthStore'
+import { health, syncFromServer } from '../utils/healthStore'
+import ExerciseLogSheet from '../components/ExerciseLogSheet.vue'
 import { api, type ExerciseLog } from '../api'
 import { catalog, loadCatalog } from '../utils/catalog'
 import { formatDateCN, todayISO } from '../utils/date'
@@ -12,6 +13,8 @@ const router = useRouter()
 const tab = ref('all')
 const logs = ref<ExerciseLog[]>([])
 const loading = ref(false)
+const sheetOpen = ref(false)
+const editingLog = ref<ExerciseLog | null>(null)
 
 const rangeOptions = [
   { value: 'all', label: '全部' },
@@ -79,6 +82,15 @@ async function loadLogs() {
   }
 }
 
+function openEdit(log: ExerciseLog) {
+  editingLog.value = log
+  sheetOpen.value = true
+}
+
+async function refreshAfterChange() {
+  await Promise.all([loadLogs(), syncFromServer().catch(() => undefined)])
+}
+
 onMounted(async () => {
   await Promise.all([loadLogs(), loadCatalog().catch(() => undefined)])
 })
@@ -102,7 +114,10 @@ onMounted(async () => {
     >
       <div class="r-top">
         <span class="r-name">{{ r.name }}</span>
-        <span class="r-date">{{ r.dateText }}</span>
+        <div class="r-actions">
+          <span class="r-date">{{ r.dateText }}</span>
+          <button class="r-edit" @click.stop="openEdit(r)">编辑</button>
+        </div>
       </div>
       <div class="r-main">
         <span class="num r-time">{{ r.durationText }}</span>
@@ -135,6 +150,14 @@ onMounted(async () => {
         <span class="num s-value">{{ totalKcal }} 大卡</span>
       </div>
     </div>
+
+    <ExerciseLogSheet
+      :open="sheetOpen"
+      :log="editingLog"
+      @close="sheetOpen = false"
+      @saved="refreshAfterChange"
+      @deleted="refreshAfterChange"
+    />
   </div>
 </template>
 
@@ -163,6 +186,21 @@ onMounted(async () => {
   font-size: var(--fs-body2);
   color: var(--neutral);
   opacity: 0.75;
+}
+
+.r-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.r-edit {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--primary);
+  font-size: var(--fs-caption);
+  font-weight: 600;
 }
 
 .r-main {

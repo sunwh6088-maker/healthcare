@@ -252,4 +252,18 @@ export const api = {
       body: JSON.stringify(payload),
     })
   },
+
+  updateExerciseLog(
+    id: number,
+    payload: { date: string; type: string; minutes: number; calories: number },
+  ) {
+    return request<ExerciseLog>(`/exercise-logs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  deleteExerciseLog(id: number) {
+    return request<void>(`/exercise-logs/${id}`, { method: 'DELETE' })
+  },
 }

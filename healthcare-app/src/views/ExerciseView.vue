@@ -2,15 +2,19 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
+import ExerciseLogSheet from '../components/ExerciseLogSheet.vue'
 import { catalog, catalogStatus, loadCatalog } from '../utils/catalog'
-import { health } from '../utils/healthStore'
+import { health, syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
-import { api } from '../api'
+import { api, type ExerciseLog } from '../api'
 import { todayISO } from '../utils/date'
 
 const router = useRouter()
 const tab = ref('yoga')
-const logging = ref(false)
+const sheetOpen = ref(false)
+const editingLog = ref<ExerciseLog | null>(null)
+const todayLogs = ref<ExerciseLog[]>([])
+const loadingLogs = ref(false)
 
 const sportOptions = computed(() =>
   catalog.exerciseTypes.map((sport) => ({ value: sport.key, label: sport.name })),
@@ -22,39 +26,54 @@ const active = computed(
 
 const lessons = computed(() => catalog.exerciseLessons)
 
-onMounted(async () => {
-  try {
-    await loadCatalog()
-  } catch (error) {
-    toast(error instanceof Error ? error.message : catalogStatus.error)
-  }
-})
-
 const activeTotal = computed(() => {
   const h = Math.floor(health.activeMinutes / 60)
   const m = health.activeMinutes % 60
   return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}.00`
 })
 
-async function logExercise() {
-  if (logging.value || !active.value) return
-  logging.value = true
+function typeName(key: string) {
+  return catalog.exerciseTypes.find((sport) => sport.key === key)?.name ?? '运动'
+}
+
+function typeEmoji(key: string) {
+  return catalog.exerciseTypes.find((sport) => sport.key === key)?.emoji ?? '🏃'
+}
+
+async function loadTodayLogs() {
+  loadingLogs.value = true
   try {
-    await api.createExerciseLog({
-      date: todayISO(),
-      type: active.value.key,
-      minutes: 30,
-      calories: active.value.kcal,
-    })
-    health.activeMinutes += 30
-    health.exerciseCount += 1
-    toast('已记录 30 分钟运动')
+    const logs = await api.listExerciseLogs()
+    todayLogs.value = logs.filter((log) => log.date === todayISO())
   } catch (error) {
-    toast(error instanceof Error ? error.message : '记录失败')
+    toast(error instanceof Error ? error.message : '加载运动记录失败')
   } finally {
-    logging.value = false
+    loadingLogs.value = false
   }
 }
+
+function openCreate() {
+  editingLog.value = null
+  sheetOpen.value = true
+}
+
+function openEdit(log: ExerciseLog) {
+  editingLog.value = log
+  sheetOpen.value = true
+}
+
+async function refreshAfterChange() {
+  await Promise.all([loadTodayLogs(), syncFromServer().catch(() => undefined)])
+}
+
+onMounted(async () => {
+  try {
+    await loadCatalog()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : catalogStatus.error)
+  }
+  await loadTodayLogs()
+})
 </script>
 
 <template>
@@ -115,6 +134,30 @@ async function logExercise() {
       </div>
     </div>
 
+    <div class="between mt-20">
+      <span class="section-title">今天的运动</span>
+      <button class="green-link" @click="router.push('/history')">全部记录</button>
+    </div>
+
+    <p v-if="!loadingLogs && !todayLogs.length" class="today-empty">
+      今天还没有运动记录，点下方按钮记录一次吧
+    </p>
+    <div v-else class="lessons today-lessons mt-12">
+      <button
+        v-for="log in todayLogs"
+        :key="log.id"
+        class="lesson today-log card"
+        @click="openEdit(log)"
+      >
+        <span class="l-emoji">{{ typeEmoji(log.type) }}</span>
+        <div class="l-info">
+          <h4>{{ typeName(log.type) }}</h4>
+          <p>{{ log.minutes }} 分钟 · {{ log.calories }} 千卡</p>
+        </div>
+        <span class="l-go">编辑 ›</span>
+      </button>
+    </div>
+
     <div class="goal-entry card mt-16" @click="router.push('/goal-tracking')">
       <span class="g-emoji">🎯</span>
       <div class="g-info">
@@ -123,14 +166,24 @@ async function logExercise() {
       </div>
       <span class="g-go">›</span>
     </div>
-
-    <button class="log-btn mt-16" :disabled="logging" @click="logExercise">
-      {{ logging ? '记录中...' : '＋ 记录 30 分钟运动' }}
+    <button class="green-link mt-8" @click="router.push('/set-goal?type=active')">
+      编辑活跃目标
     </button>
+
+    <button class="log-btn mt-16" @click="openCreate">＋ 记录运动</button>
 
     <button class="btn-primary mt-16" @click="router.push('/exercise/calendar')">
       查看运动日历
     </button>
+
+    <ExerciseLogSheet
+      :open="sheetOpen"
+      :log="editingLog"
+      :default-type="active?.key"
+      @close="sheetOpen = false"
+      @saved="refreshAfterChange"
+      @deleted="refreshAfterChange"
+    />
   </div>
 </template>
 
@@ -240,6 +293,18 @@ async function logExercise() {
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
+  width: 100%;
+  text-align: left;
+}
+
+.today-empty {
+  margin-top: 12px;
+  padding: 18px;
+  text-align: center;
+  color: var(--neutral-2);
+  font-size: var(--fs-body2);
+  background: var(--white);
+  border-radius: var(--radius-md);
 }
 
 .l-emoji {
