@@ -14,6 +14,7 @@ import {
 } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
+import { formatPhone, isValidPhone } from '../utils/validation'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +39,12 @@ onMounted(() => {
   const queryPhone = typeof route.query.phone === 'string' ? route.query.phone : ''
   phone.value = queryPhone || getPendingPhone()
   if (!phone.value) {
-    toast('请先输入电话号码')
+    toast('请先输入手机号')
+    router.replace('/login')
+    return
+  }
+  if (!isValidPhone(phone.value)) {
+    toast('手机号格式不正确，请重新输入')
     router.replace('/login')
     return
   }
@@ -117,7 +123,7 @@ async function confirm() {
 
     <div class="content">
       <h1 class="title">输入验证码</h1>
-      <p class="hint">请输入发送至 {{ phone }} 的代码</p>
+      <p class="hint">请输入发送至 +86 {{ formatPhone(phone) }} 的验证码</p>
 
       <div class="code-row">
         <div

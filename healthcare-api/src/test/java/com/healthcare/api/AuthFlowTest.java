@@ -266,4 +266,17 @@ class AuthFlowTest {
                 base + "/api/me", HttpMethod.GET, new HttpEntity<>(headers), String.class);
         assertThat(afterDelete.getStatusCode().value()).isEqualTo(401);
     }
+
+    @Test
+    void rejectsNonMainlandPhone() {
+        String base = "http://localhost:" + port;
+
+        for (String phone : List.of("12345678901", "12000000000", "1380000111", "+1 234 567 8901")) {
+            ResponseEntity<Map> response = rest.postForEntity(
+                    base + "/api/auth/send-code", Map.of("phone", phone), Map.class);
+            assertThat(response.getStatusCode().value())
+                    .as("phone %s should be rejected", phone)
+                    .isEqualTo(400);
+        }
+    }
 }

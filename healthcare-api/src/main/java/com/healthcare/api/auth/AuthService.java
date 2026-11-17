@@ -172,12 +172,19 @@ public class AuthService {
         if (phone == null) {
             throw new ApiException(400, "手机号不能为空");
         }
-        return phone.replaceAll("\\s", "");
+        String normalized = phone.replaceAll("[\\s-]", "");
+        if (normalized.startsWith("+86")) {
+            normalized = normalized.substring(3);
+        } else if (normalized.matches("86\\d{11}")) {
+            normalized = normalized.substring(2);
+        }
+        return normalized;
     }
 
+    /** 仅接受中国大陆手机号：11 位、1 开头、第二位 3-9。 */
     private void validatePhone(String phone) {
-        if (!phone.matches("\\d{7,15}")) {
-            throw new ApiException(400, "手机号格式不正确");
+        if (!phone.matches("1[3-9]\\d{9}")) {
+            throw new ApiException(400, "请输入正确的 11 位中国大陆手机号");
         }
     }
 }

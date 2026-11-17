@@ -34,9 +34,14 @@ public class UserService {
             user.setEmail(request.email().trim());
         }
         if (request.phone() != null && !request.phone().isBlank()) {
-            String phone = request.phone().replaceAll("\\s", "");
-            if (!phone.matches("\\d{7,15}")) {
-                throw new ApiException(400, "手机号格式不正确");
+            String phone = request.phone().replaceAll("[\\s-]", "");
+            if (phone.startsWith("+86")) {
+                phone = phone.substring(3);
+            } else if (phone.matches("86\\d{11}")) {
+                phone = phone.substring(2);
+            }
+            if (!phone.matches("1[3-9]\\d{9}")) {
+                throw new ApiException(400, "请输入正确的 11 位中国大陆手机号");
             }
             if (!phone.equals(user.getPhone()) && users.existsByPhoneAndIdNot(phone, userId)) {
                 throw new ApiException(400, "手机号已被使用");

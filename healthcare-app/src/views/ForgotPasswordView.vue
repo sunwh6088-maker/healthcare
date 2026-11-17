@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import NumericKeypad from '../components/NumericKeypad.vue'
 import { api } from '../api'
 import { toast } from '../utils/toast'
+import { formatPhone, isValidPhone, normalizePhone } from '../utils/validation'
 
 const router = useRouter()
 
@@ -30,10 +31,17 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
+function onPhoneInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  phone.value = formatPhone(input.value)
+  input.value = phone.value
+}
+
 function onKey(k: string) {
   if (step.value === 1) {
-    if (phone.value.replace(/\s/g, '').length < 11) {
-      phone.value = (phone.value + k).replace(/(\d{4})(?=\d)/g, '$1 ')
+    const digits = normalizePhone(phone.value)
+    if (digits.length < 11) {
+      phone.value = formatPhone(digits + k)
     }
   } else {
     if (focusIndex.value < codes.value.length) {
@@ -45,7 +53,7 @@ function onKey(k: string) {
 
 function onDelete() {
   if (step.value === 1) {
-    phone.value = phone.value.replace(/[\s\d]$/, '').trim()
+    phone.value = formatPhone(normalizePhone(phone.value).slice(0, -1))
   } else {
     focusIndex.value = Math.max(0, focusIndex.value - 1)
     codes.value[focusIndex.value] = ''
@@ -53,10 +61,10 @@ function onDelete() {
 }
 
 async function requestCode() {
-  const value = phone.value.trim()
-  if (!value) {
-    toast('请先输入电话号码')
-    return
+  const value = normalizePhone(phone.value)
+  if (!isValidPhone(value)) {
+    toast('请输入正确的 11 位中国大陆手机号')
+    throw new Error('invalid phone')
   }
   try {
     const result = await api.sendCode(value)
@@ -77,10 +85,6 @@ async function requestCode() {
 }
 
 async function sendCode() {
-  if (!phone.value.trim()) {
-    toast('请先输入电话号码')
-    return
-  }
   sending.value = true
   try {
     await requestCode()
@@ -131,21 +135,29 @@ const btnAction = () => (step.value === 1 ? sendCode() : continueFlow())
         <span class="illus-emoji">🔒</span>
       </div>
 
-      <!-- 步骤 1：输入电话号码 -->
+      <!-- 步骤 1：输入手机号 -->
       <template v-if="step === 1">
-        <p class="hint">输入您的电话号码</p>
+        <p class="hint">输入您的中国大陆手机号</p>
 
         <div class="phone-input">
-          <div class="country num">+1</div>
-          <input v-model="phone" class="num phone-num" type="tel" placeholder="1234 5678 789" />
+          <div class="country num">+86</div>
+          <input
+            :value="phone"
+            class="num phone-num"
+            type="tel"
+            inputmode="numeric"
+            maxlength="20"
+            placeholder="138 0013 8000"
+            @input="onPhoneInput"
+          />
         </div>
 
-        <p class="note">我们向您发送了一个验证码以验证您的电话号码</p>
+        <p class="note">我们向您发送了一个验证码以验证您的手机号</p>
       </template>
 
       <!-- 步骤 2：输入验证码 -->
       <template v-else>
-        <p class="hint">请输入发送至的代码</p>
+        <p class="hint">请输入发送至 +86 {{ formatPhone(phone) }} 的验证码</p>
 
         <div class="code-row">
           <div

@@ -6,7 +6,13 @@ import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
 import { health, stopRemoteSync } from '../utils/healthStore'
 import { clearSession } from '../utils/session'
-import { isValidEmail, isValidPhone, maskPhone } from '../utils/validation'
+import {
+  formatPhone,
+  isValidEmail,
+  isValidPhone,
+  maskPhone,
+  normalizePhone,
+} from '../utils/validation'
 import { api } from '../api'
 
 const router = useRouter()
@@ -67,9 +73,15 @@ const sheetPlaceholder = computed(() =>
   editField.value === 'name'
     ? '请输入昵称'
     : editField.value === 'phone'
-      ? '请输入手机号'
+      ? '请输入 11 位手机号'
       : '请输入邮箱',
 )
+
+function onEditInput() {
+  if (editField.value === 'phone') {
+    editValue.value = formatPhone(editValue.value)
+  }
+}
 
 function openEdit(field: EditField) {
   editField.value = field
@@ -77,7 +89,7 @@ function openEdit(field: EditField) {
     field === 'name'
       ? health.userName
       : field === 'phone'
-        ? health.accountPhone
+        ? formatPhone(health.accountPhone)
         : health.accountEmail
 }
 
@@ -87,7 +99,8 @@ function closeEdit() {
 
 async function saveEdit() {
   if (!editField.value) return
-  const value = editValue.value.trim()
+  const value =
+    editField.value === 'phone' ? normalizePhone(editValue.value) : editValue.value.trim()
   if (editField.value === 'name') {
     if (!value) {
       toast('昵称不能为空')
@@ -99,7 +112,7 @@ async function saveEdit() {
     }
   }
   if (editField.value === 'phone' && !isValidPhone(value)) {
-    toast('请输入有效的电话号码')
+    toast('请输入正确的 11 位中国大陆手机号')
     return
   }
   if (editField.value === 'email' && !isValidEmail(value)) {
@@ -226,7 +239,9 @@ async function deleteAccount() {
           v-model="editValue"
           class="sheet-input"
           :type="sheetType"
+          :maxlength="editField === 'phone' ? 20 : undefined"
           :placeholder="sheetPlaceholder"
+          @input="onEditInput"
         />
       </label>
 

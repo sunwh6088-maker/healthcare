@@ -65,7 +65,7 @@ const defaults: HealthState = {
     { id: 1, time: '08:30', label: '工作日', repeat: [1, 2, 3, 4, 5], on: true },
     { id: 2, time: '09:00', label: '周末', repeat: [0, 6], on: false },
   ],
-  accountPhone: '1234 5678 789',
+  accountPhone: '138 0013 8000',
   accountEmail: 'jessie@example.com',
   notifyEnabled: true,
   privacyEnabled: true,

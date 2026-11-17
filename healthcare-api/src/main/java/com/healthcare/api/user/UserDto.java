@@ -17,6 +17,8 @@ public record UserDto(Long id, String name, String phone, String email, boolean 
     public record UpdateRequest(
             @Size(max = 64, message = "昵称不能超过 64 个字符") String name,
             @Email(message = "邮箱格式不正确") @Size(max = 128, message = "邮箱过长") String email,
-            @Pattern(regexp = "^[0-9\\s]{7,20}$", message = "手机号格式不正确") String phone) {
+            @Pattern(
+                regexp = "^\\s*(?:\\+?86)?[\\s-]*1[3-9](?:[\\s-]*\\d){9}\\s*$",
+                message = "请输入正确的 11 位中国大陆手机号") String phone) {
     }
 }
