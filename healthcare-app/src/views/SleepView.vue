@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
 import { health, type Alarm } from '../utils/healthStore'
+import { catalog, loadCatalog } from '../utils/catalog'
 import { repeatText } from '../utils/alarm'
 
 const router = useRouter()
@@ -61,6 +62,11 @@ const editLabel = ref('新闹钟')
 const editRepeat = ref<number[]>([])
 const confirmDelete = ref(false)
 const soundPlaying = ref(false)
+const sound = computed(() => catalog.sleepSounds[0])
+
+onMounted(() => {
+  loadCatalog().catch(() => undefined)
+})
 
 function toggleRepeat(day: number) {
   if (editRepeat.value.includes(day)) {
@@ -143,7 +149,7 @@ function deleteAlarm() {
 
 function toggleSound() {
   soundPlaying.value = !soundPlaying.value
-  toast(soundPlaying.value ? '正在播放：潜鸟鸣声' : '已暂停')
+  toast(soundPlaying.value ? `正在播放：${sound.value?.name ?? '助眠声音'}` : '已暂停')
 }
 
 function setAlarm(a: Alarm, on: boolean) {
@@ -218,12 +224,13 @@ function setAlarm(a: Alarm, on: boolean) {
 
     <!-- 助眠声音 -->
     <button
+      v-if="sound"
       class="sound card mt-16"
       :aria-label="soundPlaying ? '暂停助眠声音' : '播放助眠声音'"
       @click="toggleSound"
     >
-      <div class="sound-icon">🎵</div>
-      <span class="sound-name">潜鸟鸣声</span>
+      <div class="sound-icon">{{ sound.emoji }}</div>
+      <span class="sound-name">{{ sound.name }}</span>
       <span class="sound-play">{{ soundPlaying ? '⏸' : '▶' }}</span>
     </button>
 

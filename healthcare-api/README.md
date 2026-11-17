@@ -24,6 +24,7 @@ mysql -u root -p < db/init.sql
 - 数据库 `healthcare`（utf8mb4）
 - 专用账号 `healthcare@localhost` / `healthcare@127.0.0.1`，密码 `healthcare_dev`
 - 表结构由 Flyway 迁移创建（`src/main/resources/db/migration`），JPA 只做 `ddl-auto=validate` 校验：`users`、`health_states`、`alarms`、`auth_tokens`、`food_logs`、`exercise_logs`
+- 基础数据表：`foods`、`exercise_types`、`exercise_lessons`、`sleep_sounds`、`devices`、`water_portions`、`meal_types`（V2 迁移）
 - 已有数据库首次启动时会自动 baseline，不会重复建表；后续结构变更请新增 `V2__xxx.sql`
 
 > 之前在没有 root 密码时曾用 `3307` 隔离实例联调，现已切换回 3306；`.mysql-data/` 目录可删除，仅作为历史备份。
@@ -99,6 +100,14 @@ java -jar target/healthcare-api-0.0.1-SNAPSHOT.jar
 | GET   | `/api/me`          | 当前账号资料（含 `hasPassword`）                                         |
 | PATCH | `/api/me`          | 修改 `name` / `email` / `phone`，字段可选                                |
 | PUT   | `/api/me/password` | `{ "oldPassword": "…", "newPassword": "…" }`；首次设置可省略 oldPassword |
+
+### 基础数据（需要 token）
+
+| 方法 | 路径           | 说明                                                                                          |
+| ---- | -------------- | --------------------------------------------------------------------------------------------- |
+| GET  | `/api/catalog` | 一次性返回食物、运动类型、课程、助眠声音、设备、饮水份量、餐次，以及当前用户最近/频繁食物名称 |
+
+前端启动后调用一次并缓存；新增食物或修改目录只需改数据库，不用重新发版。
 
 ### 健康数据与闹钟（需要 token）
 
@@ -190,7 +199,7 @@ mvn test
 ## 数据库迁移
 
 - 迁移脚本位于 `src/main/resources/db/migration`，启动时自动执行。
-- 新增/修改表结构时添加 `V2__xxx.sql`、`V3__xxx.sql`，不要直接改已有脚本。
+- 新增/修改表结构时添加 `V3__xxx.sql`、`V4__xxx.sql`，不要直接改已有脚本。
 - 已有数据库首次接入 Flyway 时会自动 baseline 到版本 0，再执行 V1；`CREATE TABLE IF NOT EXISTS` 保证不会破坏现有表。
 
 ## 部署

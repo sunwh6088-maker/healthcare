@@ -36,6 +36,8 @@ export interface HealthState {
   privacyEnabled: boolean
   deviceConnected: boolean
   deviceAdded: boolean
+  deviceBattery: number
+  deviceLastSyncAt: string
 }
 
 const STORAGE_KEY = 'healthcare-app-state'
@@ -66,6 +68,8 @@ const defaults: HealthState = {
   privacyEnabled: true,
   deviceConnected: true,
   deviceAdded: false,
+  deviceBattery: 86,
+  deviceLastSyncAt: new Date().toISOString(),
 }
 
 function normalizeAlarms(alarms: Alarm[]): Alarm[] {
@@ -117,6 +121,8 @@ function toServerState(): StateDto {
       privacyEnabled: health.privacyEnabled,
       deviceConnected: health.deviceConnected,
       deviceAdded: health.deviceAdded,
+      deviceBattery: health.deviceBattery,
+      deviceLastSyncAt: health.deviceLastSyncAt,
       gender: health.gender,
       age: health.age,
       heightCm: health.heightCm,
@@ -147,6 +153,8 @@ function applyServerState(state: StateDto) {
   health.privacyEnabled = h.privacyEnabled
   health.deviceConnected = h.deviceConnected
   health.deviceAdded = h.deviceAdded
+  health.deviceBattery = h.deviceBattery
+  health.deviceLastSyncAt = h.deviceLastSyncAt
   health.gender = h.gender === 'female' || h.gender === 'male' ? h.gender : null
   health.age = h.age
   health.heightCm = h.heightCm

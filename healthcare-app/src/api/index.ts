@@ -23,6 +23,8 @@ export interface HealthDto {
   privacyEnabled: boolean
   deviceConnected: boolean
   deviceAdded: boolean
+  deviceBattery: number
+  deviceLastSyncAt: string
   gender: 'female' | 'male' | null
   age: number
   heightCm: number
@@ -82,6 +84,76 @@ export interface ExerciseLog {
   calories: number
 }
 
+export interface CatalogFood {
+  id: number
+  name: string
+  portion: string
+  calories: number
+  emoji: string
+  category: 'main' | 'snack'
+  custom: boolean
+}
+
+export interface ExerciseType {
+  key: string
+  name: string
+  emoji: string
+  bg: string
+  bar: string
+  kcal: number
+}
+
+export interface ExerciseLesson {
+  id: number
+  typeKey: string
+  title: string
+  level: string
+  minutes: number
+  calories: number
+  emoji: string
+}
+
+export interface SleepSound {
+  id: number
+  name: string
+  emoji: string
+  audioUrl: string | null
+}
+
+export interface DeviceItem {
+  id: number
+  name: string
+  icon: string
+  capabilities: string
+  primary: boolean
+}
+
+export interface WaterPortion {
+  id: number
+  name: string
+  sizeLabel: string
+  emoji: string
+  ml: number
+}
+
+export interface MealType {
+  key: string
+  label: string
+  emoji: string
+}
+
+export interface CatalogResponse {
+  foods: CatalogFood[]
+  exerciseTypes: ExerciseType[]
+  exerciseLessons: ExerciseLesson[]
+  sleepSounds: SleepSound[]
+  devices: DeviceItem[]
+  waterPortions: WaterPortion[]
+  meals: MealType[]
+  recentFoodNames: string[]
+  frequentFoodNames: string[]
+}
+
 export const api = {
   sendCode(phone: string) {
     return request<SendCodeResponse>('/auth/send-code', {
@@ -131,6 +203,10 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
+  },
+
+  getCatalog() {
+    return request<CatalogResponse>('/catalog')
   },
 
   getState() {

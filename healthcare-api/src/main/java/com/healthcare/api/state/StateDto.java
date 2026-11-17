@@ -1,5 +1,6 @@
 package com.healthcare.api.state;
 
+import java.time.Instant;
 import java.util.List;
 
 public record StateDto(HealthDto health, List<AlarmDto> alarms) {
@@ -19,6 +20,8 @@ public record StateDto(HealthDto health, List<AlarmDto> alarms) {
             boolean privacyEnabled,
             boolean deviceConnected,
             boolean deviceAdded,
+            int deviceBattery,
+            Instant deviceLastSyncAt,
             String gender,
             int age,
             int heightCm,

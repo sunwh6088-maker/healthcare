@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
-import { foods as allFoods } from '../mock/foods'
+import { catalog, catalogStatus, loadCatalog } from '../utils/catalog'
+import { toast } from '../utils/toast'
 
 const router = useRouter()
 const keyword = ref('')
 
 const list = computed(() => {
-  if (!keyword.value.trim()) return allFoods
-  return allFoods.filter(
-    (f) =>
-      f.name.includes(keyword.value) || f.en.toLowerCase().includes(keyword.value.toLowerCase()),
+  if (!keyword.value.trim()) return catalog.foods
+  const query = keyword.value.toLowerCase()
+  return catalog.foods.filter(
+    (f) => f.name.toLowerCase().includes(query) || f.portion.toLowerCase().includes(query),
   )
+})
+
+onMounted(async () => {
+  try {
+    await loadCatalog()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : catalogStatus.error)
+  }
 })
 </script>
 
@@ -30,19 +39,20 @@ const list = computed(() => {
     <div class="list mt-16">
       <button
         v-for="f in list"
-        :key="f.name"
+        :key="f.id"
         class="food-row card"
         @click="router.push({ path: '/add-food', query: { food: f.name } })"
       >
         <span class="f-emoji">{{ f.emoji }}</span>
         <div class="f-info">
           <h4>{{ f.name }}</h4>
-          <p class="f-en">{{ f.en }}</p>
+          <p class="f-en">{{ f.portion }}</p>
         </div>
-        <span class="f-cal">{{ f.cal }}</span>
+        <span class="f-cal">{{ f.calories }} 卡路里</span>
         <span class="f-add">＋</span>
       </button>
-      <p v-if="!list.length" class="empty">未找到相关食物</p>
+      <p v-if="catalogStatus.loading && !catalogStatus.loaded" class="empty">加载中...</p>
+      <p v-else-if="!list.length" class="empty">未找到相关食物</p>
     </div>
   </div>
 </template>

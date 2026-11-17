@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { health } from '../utils/healthStore'
 import { api, type ExerciseLog } from '../api'
+import { catalog, loadCatalog } from '../utils/catalog'
 import { formatDateCN, todayISO } from '../utils/date'
 import { toast } from '../utils/toast'
 
@@ -18,12 +19,13 @@ const rangeOptions = [
   { value: 'month', label: '月份' },
 ]
 
-const typeMeta: Record<string, { name: string; emoji: string; bg: string }> = {
-  yoga: { name: '瑜伽', emoji: '🧘', bg: '#bacac2' },
-  walk: { name: '快走', emoji: '🚶', bg: '#ffe2d3' },
-  run: { name: '跑步', emoji: '🏃', bg: '#d2d0e8' },
-  ride: { name: '骑车', emoji: '🚴', bg: '#fdedd0' },
-}
+const typeMeta = computed(() => {
+  const map: Record<string, { name: string; emoji: string; bg: string }> = {}
+  for (const sport of catalog.exerciseTypes) {
+    map[sport.key] = { name: sport.name, emoji: sport.emoji, bg: sport.bg }
+  }
+  return map
+})
 
 function dateOffsetISO(days: number) {
   const date = new Date()
@@ -54,7 +56,7 @@ const list = computed(() => {
 
 const displayList = computed(() =>
   list.value.map((log) => {
-    const meta = typeMeta[log.type] ?? { name: '运动', emoji: '🏃', bg: '#bacac2' }
+    const meta = typeMeta.value[log.type] ?? { name: '运动', emoji: '🏃', bg: '#bacac2' }
     return {
       ...log,
       ...meta,
@@ -77,7 +79,9 @@ async function loadLogs() {
   }
 }
 
-onMounted(loadLogs)
+onMounted(async () => {
+  await Promise.all([loadLogs(), loadCatalog().catch(() => undefined)])
+})
 </script>
 
 <template>

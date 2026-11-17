@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
-import { sports } from '../mock/exercise'
+import { catalog, catalogStatus, loadCatalog } from '../utils/catalog'
 import { health } from '../utils/healthStore'
 import { toast } from '../utils/toast'
 import { api } from '../api'
@@ -12,9 +12,23 @@ const router = useRouter()
 const tab = ref('yoga')
 const logging = ref(false)
 
-const sportOptions = sports.map((s) => ({ value: s.key, label: s.name }))
+const sportOptions = computed(() =>
+  catalog.exerciseTypes.map((sport) => ({ value: sport.key, label: sport.name })),
+)
 
-const active = computed(() => sports.find((s) => s.key === tab.value) ?? sports[0])
+const active = computed(
+  () => catalog.exerciseTypes.find((sport) => sport.key === tab.value) ?? catalog.exerciseTypes[0],
+)
+
+const lessons = computed(() => catalog.exerciseLessons)
+
+onMounted(async () => {
+  try {
+    await loadCatalog()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : catalogStatus.error)
+  }
+})
 
 const activeTotal = computed(() => {
   const h = Math.floor(health.activeMinutes / 60)
@@ -23,7 +37,7 @@ const activeTotal = computed(() => {
 })
 
 async function logExercise() {
-  if (logging.value) return
+  if (logging.value || !active.value) return
   logging.value = true
   try {
     await api.createExerciseLog({
@@ -57,7 +71,7 @@ async function logExercise() {
     <SegmentedControl v-model="tab" :options="sportOptions" />
 
     <!-- 总览卡片 -->
-    <div class="overview card mt-16">
+    <div v-if="active" class="overview card mt-16">
       <div class="ov-left">
         <span class="num ov-value">{{ active.key === 'yoga' ? activeTotal : '0.00' }}</span>
         <span class="ov-unit">{{ active.key === 'yoga' ? '分钟' : '公里' }}</span>
@@ -67,7 +81,7 @@ async function logExercise() {
     </div>
 
     <!-- 运动课程卡片 -->
-    <div class="course card mt-16" :style="{ background: active.bg }">
+    <div v-if="active" class="course card mt-16" :style="{ background: active.bg }">
       <div class="course-info">
         <h3 class="course-name">{{ active.name }} #1</h3>
         <span class="course-kcal">{{ active.kcal }} 千卡</span>
@@ -86,19 +100,16 @@ async function logExercise() {
     </div>
 
     <div class="lessons mt-12">
-      <div class="lesson card" @click="router.push('/exercise/calendar')">
-        <span class="l-emoji">🧘</span>
+      <div
+        v-for="lesson in lessons"
+        :key="lesson.id"
+        class="lesson card"
+        @click="router.push('/exercise/calendar')"
+      >
+        <span class="l-emoji">{{ lesson.emoji }}</span>
         <div class="l-info">
-          <h4>瑜伽 #1</h4>
-          <p>初级 · 32 分钟 · 320 千卡</p>
-        </div>
-        <span class="l-go">›</span>
-      </div>
-      <div class="lesson card" @click="router.push('/exercise/calendar')">
-        <span class="l-emoji">🚶</span>
-        <div class="l-info">
-          <h4>快走 #1</h4>
-          <p>中级 · 45 分钟 · 560 千卡</p>
+          <h4>{{ lesson.title }}</h4>
+          <p>{{ lesson.level }} · {{ lesson.minutes }} 分钟 · {{ lesson.calories }} 千卡</p>
         </div>
         <span class="l-go">›</span>
       </div>

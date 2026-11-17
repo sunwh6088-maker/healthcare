@@ -1,5 +1,35 @@
 <script setup lang="ts">
+import { computed, onMounted } from 'vue'
 import { health } from '../utils/healthStore'
+import { catalog, loadCatalog } from '../utils/catalog'
+
+const primaryDevice = computed(
+  () => catalog.devices.find((device) => device.primary) ?? catalog.devices[0],
+)
+const otherDevices = computed(() =>
+  catalog.devices.filter((device) => device.id !== primaryDevice.value?.id),
+)
+
+function formatSyncTime(value: string) {
+  if (!value) return '暂无同步记录'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '暂无同步记录'
+  const now = new Date()
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  if (date.toDateString() === now.toDateString()) return `今天 ${time}`
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${time}`
+}
+
+function toggleConnection() {
+  health.deviceConnected = !health.deviceConnected
+  if (health.deviceConnected) {
+    health.deviceLastSyncAt = new Date().toISOString()
+  }
+}
+
+onMounted(() => {
+  loadCatalog().catch(() => undefined)
+})
 </script>
 
 <template>
@@ -10,12 +40,12 @@ import { health } from '../utils/healthStore'
     <p class="page-sub">管理您的健康设备</p>
 
     <!-- 主设备卡片 -->
-    <div class="main-card card mt-16">
-      <div class="watch-icon">⌚</div>
+    <div v-if="primaryDevice" class="main-card card mt-16">
+      <div class="watch-icon">{{ primaryDevice.icon }}</div>
       <div class="main-info">
-        <h2 class="num">智能手表</h2>
+        <h2 class="num">{{ primaryDevice.name }}</h2>
         <p class="status">
-          {{ health.deviceConnected ? '已连接 · 电量 86%' : '已断开' }}
+          {{ health.deviceConnected ? `已连接 · 电量 ${health.deviceBattery}%` : '已断开' }}
         </p>
       </div>
       <span :class="health.deviceConnected ? 'dot-ok' : 'dot-off'"></span>
@@ -23,15 +53,10 @@ import { health } from '../utils/healthStore'
 
     <!-- 其他设备 -->
     <div class="sub-grid mt-16">
-      <div class="sub-card card">
-        <span class="sub-icon">📱</span>
-        <h3>智能手机</h3>
-        <p>步数 · 睡眠</p>
-      </div>
-      <div class="sub-card card">
-        <span class="sub-icon">⚖️</span>
-        <h3>智能体脂秤</h3>
-        <p>体重 · 体脂</p>
+      <div v-for="device in otherDevices" :key="device.id" class="sub-card card">
+        <span class="sub-icon">{{ device.icon }}</span>
+        <h3>{{ device.name }}</h3>
+        <p>{{ device.capabilities }}</p>
       </div>
     </div>
 
@@ -40,10 +65,10 @@ import { health } from '../utils/healthStore'
         <span class="sync-icon">🔄</span>
         <div>
           <h3>同步数据</h3>
-          <p>上次同步：今天 09:41</p>
+          <p>上次同步：{{ formatSyncTime(health.deviceLastSyncAt) }}</p>
         </div>
       </div>
-      <button class="sync-btn" @click="health.deviceConnected = !health.deviceConnected">
+      <button class="sync-btn" @click="toggleConnection">
         {{ health.deviceConnected ? '断开' : '连接' }}
       </button>
     </div>

@@ -54,7 +54,7 @@ healthcare-app/
 │  ├─ main.ts                  # 应用入口：全局组件注册、$toast、路由挂载
 │  ├─ App.vue                  # 手机外框、页面过渡、Tab 栏条件渲染、滚动复位
 │  ├─ style.css                # 设计令牌 + 全局工具类
-│  ├─ api/index.ts             # 后端 API 封装（认证 / 账号 / 健康数据）
+│  ├─ api/index.ts             # 后端 API 封装（认证 / 账号 / 健康数据 / 基础数据）
 │  ├─ router/index.ts          # 28 条路由（懒加载）+ 404 兜底 + 登录守卫
 │  ├─ components/
 │  │  ├─ StatusBar.vue         # 状态栏（支持深色页面）
@@ -65,11 +65,9 @@ healthcare-app/
 │  │  ├─ SegmentedControl.vue  # 分段选择器（v-model）
 │  │  ├─ BottomSheet.vue       # 通用底部弹层（Teleport 到手机壳）
 │  │  └─ NumericKeypad.vue     # 数字键盘
-│  ├─ mock/
-│  │  ├─ foods.ts              # 食物 mock 数据（发现 / 搜索 / 添加共用）
-│  │  └─ exercise.ts           # 运动类型与历史记录 mock 数据
 │  ├─ utils/
 │  │  ├─ toast.ts              # 全局轻提示
+│  │  ├─ catalog.ts            # 基础数据加载（食物 / 运动 / 设备 / 份量 / 餐次）
 │  │  ├─ healthStore.ts        # 全局健康数据（响应式 + localStorage 持久化）
 │  │  ├─ alarm.ts              # 闹钟重复文案（含单测）
 │  │  ├─ validation.ts         # 手机号 / 邮箱校验与脱敏（含单测）
@@ -162,7 +160,8 @@ healthcare-app/
 - 登录 token 由后端写入 HttpOnly Cookie，前端不保存 token，只保留一个非敏感的已登录标记；请求自动携带 Cookie。生产环境请启用 HTTPS 并设置 `AUTH_COOKIE_SECURE=true`。
 - 开发模式下后端 `send-code` 会返回 `devCode`，前端自动填充验证码并在页面上显示；生产环境应关闭 `APP_DEV_MODE` 并配置 `SMS_WEBHOOK_URL`，验证码不再返回给前端。
 - 后端对验证码发送（60 秒冷却、每小时 10 次）和登录尝试（10 分钟 10 次）做了进程内限流；多实例部署时应改为 Redis 等共享存储。
-- 通用 mock 数据集中在 `src/mock/`，发现页、搜索页、添加食物页共用同一份食物数据。
+- 食物、运动类型、课程、助眠声音、设备、饮水份量和餐次全部来自后端 `/api/catalog`，由 `src/utils/catalog.ts` 统一加载和缓存；数据库是唯一数据源。
+- 「最近吃过 / 频繁」使用后端根据当前用户 `food_logs` 聚合出的名称，没有记录时回退到目录顺序。
 - `src/utils/healthStore.ts` 用一个响应式对象保存用户资料与健康数据，本地写 `localStorage` 缓存，并在变更后 600ms 防抖同步到后端：
   - 用户：姓名、性别、年龄、身高、体重、手机号、邮箱；
   - 健康：步数 / 目标、饮水 / 目标、食物热量、运动次数、活跃时间 / 目标、睡眠时长与就寝时间、闹钟；
@@ -177,7 +176,7 @@ healthcare-app/
   - 账号支持昵称、手机号、邮箱修改，以及密码登录 / 修改 / 验证码重置；
   - 退出登录会同时清除服务端 token 与 HttpOnly Cookie；
   - 账户页修改的手机号与邮箱也会持久化；
-  - 设置页的通知 / 隐私开关、设备连接 / 添加状态也会持久化。
+  - 设置页的通知 / 隐私开关、设备连接 / 添加状态、设备电量和最近同步时间也会持久化。
 - 距离与卡路里为演示估算：步数 × 0.7 米 / 步、步数 × 0.04 千卡 / 步。
 - 测试或需要恢复初始数据时，清除浏览器 `localStorage` 中的 `healthcare-app-state` 即可。
 

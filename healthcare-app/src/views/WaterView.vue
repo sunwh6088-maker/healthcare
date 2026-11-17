@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'
+import { catalog, loadCatalog } from '../utils/catalog'
 import { toast } from '../utils/toast'
 
 const router = useRouter()
-const portions = [
-  { name: '1 杯', size: '(130 毫升)', emoji: '🥛', ml: 130 },
-  { name: '1 瓶', size: '(260 毫升)', emoji: '🍶', ml: 260 },
-  { name: '1 大瓶', size: '(520 毫升)', emoji: '🫗', ml: 520 },
-]
+const portions = computed(() => catalog.waterPortions)
 const selected = ref(0)
 const saved = ref(false)
+
+onMounted(() => {
+  loadCatalog().catch(() => undefined)
+})
 
 const waterPct = computed(() =>
   Math.min(100, Math.round((health.waterMl / health.waterGoalMl) * 100)),
@@ -19,7 +20,9 @@ const waterPct = computed(() =>
 const filledBars = computed(() => Math.round((health.waterMl / health.waterGoalMl) * 8))
 
 function save() {
-  const ml = portions[selected.value].ml
+  const portion = portions.value[selected.value]
+  if (!portion) return
+  const ml = portion.ml
   health.waterMl = Math.min(health.waterGoalMl, health.waterMl + ml)
   toast(`已记录 ${ml} 毫升`)
   saved.value = true
@@ -42,7 +45,7 @@ function save() {
           <span class="pct-label">今日饮水</span>
         </div>
         <div class="glass">💧</div>
-        <span class="num amount">{{ portions[selected].ml }} 毫升</span>
+        <span class="num amount">{{ portions[selected]?.ml ?? 0 }} 毫升</span>
       </div>
     </div>
 
@@ -52,14 +55,14 @@ function save() {
       <div class="portions">
         <button
           v-for="(p, i) in portions"
-          :key="p.name"
+          :key="p.id"
           class="portion card"
           :class="{ active: selected === i }"
           @click="selected = i"
         >
           <span class="p-emoji">{{ p.emoji }}</span>
           <span class="p-name">{{ p.name }}</span>
-          <span class="num p-size">{{ p.size }}</span>
+          <span class="num p-size">{{ p.sizeLabel }}</span>
         </button>
       </div>
 

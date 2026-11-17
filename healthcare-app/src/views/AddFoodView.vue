@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
-import { foods, recentlyEaten as recent, snackFoods as snacks } from '../mock/foods'
+import { catalog, catalogStatus, loadCatalog, pickFoods } from '../utils/catalog'
 import { toast } from '../utils/toast'
 import { health } from '../utils/healthStore'
-import { api } from '../api'
+import { api, type CatalogFood } from '../api'
 import { todayISO } from '../utils/date'
-import { MEALS, mealLabel } from '../utils/meals'
+import { mealLabel } from '../utils/meals'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,35 +15,54 @@ const router = useRouter()
 const meal = ref('breakfast')
 const logDate = ref(todayISO())
 const adding = ref(false)
-const mealOptions = MEALS.map((item) => ({ value: item.key, label: item.label }))
+const mealOptions = computed(() =>
+  catalog.meals.map((item) => ({ value: item.key, label: item.label })),
+)
 
 // 从搜索页带过来的食物
 const picked = computed(() => {
   const name = String(route.query.food || '')
-  return name ? foods.find((f) => f.name === name) : undefined
+  return name ? catalog.foods.find((f) => f.name === name) : undefined
 })
 
-async function addFood(name: string, cal: string, emoji: string, portion: string) {
+// 优先展示用户最近吃过的，没有记录时回退到常吃主食
+const recent = computed(() => {
+  const pickedRecent = pickFoods(catalog.recentFoodNames, 6)
+  return catalog.recentFoodNames.length
+    ? pickedRecent
+    : catalog.foods.filter((f) => f.category === 'main').slice(0, 6)
+})
+
+const snacks = computed(() => catalog.foods.filter((f) => f.category === 'snack'))
+
+async function addFood(food: CatalogFood) {
   if (adding.value) return
-  const calories = Number.parseInt(cal, 10) || 0
   adding.value = true
   try {
     const result = await api.createFoodLog({
       date: logDate.value,
       meal: meal.value,
-      name,
-      portion,
-      calories,
-      emoji,
+      name: food.name,
+      portion: food.portion,
+      calories: food.calories,
+      emoji: food.emoji,
     })
     health.foodKcal = result.todayTotalCalories
-    toast(`已添加 ${name} 到${mealLabel(meal.value)}`)
+    toast(`已添加 ${food.name} 到${mealLabel(meal.value)}`)
   } catch (error) {
     toast(error instanceof Error ? error.message : '添加失败')
   } finally {
     adding.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    await loadCatalog()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : catalogStatus.error)
+  }
+})
 </script>
 
 <template>
@@ -57,12 +76,10 @@ async function addFood(name: string, cal: string, emoji: string, portion: string
       <span class="f-emoji">{{ picked.emoji }}</span>
       <div class="f-info">
         <h4>{{ picked.name }}</h4>
-        <p class="f-en">{{ picked.en }}</p>
+        <p class="f-en">{{ picked.portion }}</p>
       </div>
-      <span class="f-cal">{{ picked.cal }}</span>
-      <button class="picked-add" @click="addFood(picked.name, picked.cal, picked.emoji, picked.en)">
-        添加
-      </button>
+      <span class="f-cal">{{ picked.calories }} 卡路里</span>
+      <button class="picked-add" @click="addFood(picked)">添加</button>
     </div>
 
     <!-- 餐次 -->
@@ -77,38 +94,29 @@ async function addFood(name: string, cal: string, emoji: string, portion: string
 
     <!-- 最近吃过 -->
     <h3 class="section-title mt-20">以前吃过</h3>
-    <div class="foods mt-12">
-      <div
-        v-for="f in recent"
-        :key="f.name"
-        class="food card"
-        @click="addFood(f.name, f.cal, f.emoji, f.en)"
-      >
+    <p v-if="!catalogStatus.loaded && catalogStatus.loading" class="empty">加载中...</p>
+    <div v-else class="foods mt-12">
+      <div v-for="f in recent" :key="f.id" class="food card" @click="addFood(f)">
         <span class="f-emoji">{{ f.emoji }}</span>
         <div class="f-info">
           <h4>{{ f.name }}</h4>
-          <p class="f-en">{{ f.en }}</p>
+          <p class="f-en">{{ f.portion }}</p>
         </div>
-        <span class="f-cal">{{ f.cal }}</span>
+        <span class="f-cal">{{ f.calories }} 卡路里</span>
         <span class="f-add">＋</span>
       </div>
     </div>
 
     <!-- 零食 -->
     <h3 class="section-title mt-20">零食</h3>
-    <div class="foods mt-12">
-      <div
-        v-for="f in snacks"
-        :key="f.name"
-        class="food card"
-        @click="addFood(f.name, f.cal, f.emoji, f.en)"
-      >
+    <div v-if="catalogStatus.loaded" class="foods mt-12">
+      <div v-for="f in snacks" :key="f.id" class="food card" @click="addFood(f)">
         <span class="f-emoji">{{ f.emoji }}</span>
         <div class="f-info">
           <h4>{{ f.name }}</h4>
-          <p class="f-en">{{ f.en }}</p>
+          <p class="f-en">{{ f.portion }}</p>
         </div>
-        <span class="f-cal">{{ f.cal }}</span>
+        <span class="f-cal">{{ f.calories }} 卡路里</span>
         <span class="f-add">＋</span>
       </div>
     </div>
@@ -182,6 +190,13 @@ async function addFood(name: string, cal: string, emoji: string, portion: string
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.empty {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--neutral-2);
+  font-size: var(--fs-body2);
 }
 
 .food {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { frequentFoods, recentFoods, customFoods } from '../mock/foods'
+import { catalog, catalogStatus, loadCatalog, pickFoods } from '../utils/catalog'
+import { toast } from '../utils/toast'
 
 const router = useRouter()
 const tab = ref('frequent')
@@ -13,9 +14,23 @@ const tabs = [
 ]
 
 const list = computed(() => {
-  if (tab.value === 'recent') return recentFoods
-  if (tab.value === 'custom') return customFoods
-  return frequentFoods
+  if (tab.value === 'recent') {
+    const recent = pickFoods(catalog.recentFoodNames, 24)
+    return catalog.recentFoodNames.length ? recent : [...catalog.foods].slice(0, 24).reverse()
+  }
+  if (tab.value === 'custom') {
+    const custom = catalog.foods.filter((food) => food.custom)
+    return custom.length ? custom : catalog.foods.slice(16, 30)
+  }
+  return pickFoods(catalog.frequentFoodNames, 16)
+})
+
+onMounted(async () => {
+  try {
+    await loadCatalog()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : catalogStatus.error)
+  }
 })
 </script>
 
@@ -30,16 +45,18 @@ const list = computed(() => {
 
     <SegmentedControl v-model="tab" :options="tabs" class="mt-12" />
 
-    <div class="food-grid mt-16">
+    <p v-if="!catalogStatus.loaded && catalogStatus.loading" class="empty">加载中...</p>
+    <p v-else-if="!list.length" class="empty">暂无食物数据</p>
+    <div v-else class="food-grid mt-16">
       <button
         v-for="f in list"
-        :key="f.name + tab"
+        :key="f.id + tab"
         class="food-card"
-        @click="router.push('/add-food')"
+        @click="router.push({ path: '/add-food', query: { food: f.name } })"
       >
         <span class="f-emoji">{{ f.emoji }}</span>
         <span class="f-name">{{ f.name }}</span>
-        <span class="f-cal">{{ f.cal }}</span>
+        <span class="f-cal">{{ f.calories }} 卡路里</span>
         <span class="f-add">＋</span>
       </button>
     </div>
@@ -106,6 +123,13 @@ const list = computed(() => {
 .f-cal {
   font-size: var(--fs-body2);
   color: var(--neutral-2);
+}
+
+.empty {
+  margin-top: 24px;
+  text-align: center;
+  color: var(--neutral-2);
+  font-size: var(--fs-body2);
 }
 
 .f-add {

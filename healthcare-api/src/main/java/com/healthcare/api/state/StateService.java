@@ -74,6 +74,8 @@ public class StateService {
                 state.isPrivacyEnabled(),
                 state.isDeviceConnected(),
                 state.isDeviceAdded(),
+                state.getDeviceBattery(),
+                state.getDeviceLastSyncAt(),
                 state.getGender(),
                 state.getAge(),
                 state.getHeightCm(),
@@ -104,6 +106,10 @@ public class StateService {
         state.setPrivacyEnabled(health.privacyEnabled());
         state.setDeviceConnected(health.deviceConnected());
         state.setDeviceAdded(health.deviceAdded());
+        state.setDeviceBattery(health.deviceBattery());
+        if (health.deviceLastSyncAt() != null) {
+            state.setDeviceLastSyncAt(health.deviceLastSyncAt());
+        }
         state.setGender(health.gender());
         state.setAge(health.age());
         state.setHeightCm(health.heightCm());
@@ -129,6 +135,9 @@ public class StateService {
         }
         if (health.weightKg() < 0 || health.weightKg() > 500) {
             throw new ApiException(400, "体重超出范围");
+        }
+        if (health.deviceBattery() < 0 || health.deviceBattery() > 100) {
+            throw new ApiException(400, "设备电量超出范围");
         }
         if (health.gender() != null && !GENDERS.contains(health.gender())) {
             throw new ApiException(400, "性别参数不正确");

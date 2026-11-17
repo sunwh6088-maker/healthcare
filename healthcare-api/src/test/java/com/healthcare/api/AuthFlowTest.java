@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@Sql(scripts = "/catalog-test.sql")
 class AuthFlowTest {
 
     @LocalServerPort
@@ -61,6 +63,19 @@ class AuthFlowTest {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<Void> auth = new HttpEntity<>(headers);
+
+        // 基础数据统一由数据库提供
+        ResponseEntity<Map> catalog = rest.exchange(
+                base + "/api/catalog", HttpMethod.GET, auth, Map.class);
+        assertThat(catalog.getStatusCode().value()).isEqualTo(200);
+        Map<?, ?> catalogData = (Map<?, ?>) catalog.getBody().get("data");
+        assertThat((List<?>) catalogData.get("foods")).hasSize(3);
+        assertThat((List<?>) catalogData.get("exerciseTypes")).hasSize(2);
+        assertThat((List<?>) catalogData.get("exerciseLessons")).hasSize(1);
+        assertThat((List<?>) catalogData.get("sleepSounds")).hasSize(1);
+        assertThat((List<?>) catalogData.get("devices")).hasSize(2);
+        assertThat((List<?>) catalogData.get("waterPortions")).hasSize(2);
+        assertThat((List<?>) catalogData.get("meals")).hasSize(4);
 
         ResponseEntity<Map> me = rest.exchange(base + "/api/me", HttpMethod.GET, auth, Map.class);
         assertThat(me.getStatusCode().value()).isEqualTo(200);

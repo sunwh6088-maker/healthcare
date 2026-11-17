@@ -59,6 +59,7 @@ CI 位于 `.github/workflows/`：`frontend-ci.yml` 和 `backend-ci.yml` 按改�
 
 - `ui-tools/sketch-extract/`、`ui-tools/slices/` 和截图均为本地生成物，已 gitignore；可用 `ui-tools` 下的脚本从设计稿重新生成。
 - 数据库结构由 Flyway 管理（`healthcare-api/src/main/resources/db/migration`），JPA 以 `validate` 模式启动。
+- 食物、运动类型、课程、助眠声音、设备、饮水份量和餐次等基础数据全部存放在数据库，前端通过 `GET /api/catalog` 一次加载，不再使用本地 mock 文件。
 - 登录 token 使用 HttpOnly Cookie，前端只在 localStorage 记录一个非敏感的已登录标记。
 - 生产部署前需关闭 `APP_DEV_MODE`、配置 `SMS_WEBHOOK_URL`、收紧 `CORS_ALLOWED_ORIGINS`，启用 HTTPS 并设置 `AUTH_COOKIE_SECURE=true`。
 - 项目当前处于“高保真原型 + 最小可用后端”阶段，账户注销、真实设备同步和通知推送尚未实现。

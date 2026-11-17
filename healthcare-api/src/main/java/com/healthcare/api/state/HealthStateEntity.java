@@ -39,6 +39,12 @@ public class HealthStateEntity {
     private boolean deviceAdded;
 
     @Column(nullable = false)
+    private int deviceBattery;
+
+    @Column(nullable = false)
+    private Instant deviceLastSyncAt;
+
+    @Column(nullable = false)
     private Instant updatedAt;
 
     @PrePersist
@@ -68,6 +74,8 @@ public class HealthStateEntity {
         state.privacyEnabled = true;
         state.deviceConnected = true;
         state.deviceAdded = false;
+        state.deviceBattery = 86;
+        state.deviceLastSyncAt = Instant.now();
         return state;
     }
 
@@ -221,6 +229,22 @@ public class HealthStateEntity {
 
     public void setDeviceAdded(boolean deviceAdded) {
         this.deviceAdded = deviceAdded;
+    }
+
+    public int getDeviceBattery() {
+        return deviceBattery;
+    }
+
+    public void setDeviceBattery(int deviceBattery) {
+        this.deviceBattery = deviceBattery;
+    }
+
+    public Instant getDeviceLastSyncAt() {
+        return deviceLastSyncAt;
+    }
+
+    public void setDeviceLastSyncAt(Instant deviceLastSyncAt) {
+        this.deviceLastSyncAt = deviceLastSyncAt;
     }
 
     public Instant getUpdatedAt() {
