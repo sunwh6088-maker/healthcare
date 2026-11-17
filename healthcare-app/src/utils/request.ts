@@ -1,3 +1,5 @@
+import { clearSession } from './session'
+
 // 统一封装的请求工具（对应后端 SpringMVC 接口）
 // 后端地址通过环境变量 VITE_API_BASE_URL 配置，默认 /api（配合 vite proxy）
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -9,22 +11,21 @@ interface ApiResponse<T> {
 }
 
 async function request<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
-  // 自动携带 token
   const headers = new Headers(options.headers)
-  const token = localStorage.getItem('token')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
   if (options.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
 
+  // 登录 token 在 HttpOnly Cookie 中，浏览器自动携带
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
     signal: options.signal ?? AbortSignal.timeout(10000),
   })
 
   if (response.status === 401) {
-    localStorage.removeItem('token')
+    clearSession()
     throw new Error('登录已过期，请重新登录')
   }
 

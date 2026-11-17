@@ -1,6 +1,6 @@
 import { nextTick, reactive, watch } from 'vue'
 import { api, type StateDto, type User } from '../api'
-import { getToken } from './session'
+import { hasSession } from './session'
 
 // 轻量全局健康数据：首页、步骤、饮水、目标、睡眠等页面共用，并持久化到 localStorage
 export interface Alarm {
@@ -161,7 +161,7 @@ function applyServerState(state: StateDto) {
 }
 
 function scheduleRemoteSave() {
-  if (!getToken() || applyingRemote) return
+  if (!hasSession() || applyingRemote) return
   if (remoteTimer) clearTimeout(remoteTimer)
   remoteTimer = setTimeout(() => {
     remoteTimer = null
@@ -186,7 +186,7 @@ watch(
 
 /** 登录后从后端拉取账号与健康数据，覆盖本地缓存 */
 export async function syncFromServer(): Promise<User | null> {
-  if (!getToken()) return null
+  if (!hasSession()) return null
   const [user, state] = await Promise.all([api.me(), api.getState()])
   applyingRemote = true
   health.userName = user.name

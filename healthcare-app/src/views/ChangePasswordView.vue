@@ -5,7 +5,7 @@ import { goBack } from '../utils/navigation'
 import NumericKeypad from '../components/NumericKeypad.vue'
 import { toast } from '../utils/toast'
 import { api } from '../api'
-import { setToken } from '../utils/session'
+import { setSession } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 
 const route = useRoute()
@@ -67,8 +67,8 @@ async function submit() {
         router.replace('/forgot-password')
         return
       }
-      const result = await api.resetPassword(resetPhone.value, resetCode.value, pwd1.value)
-      setToken(result.token)
+      await api.resetPassword(resetPhone.value, resetCode.value, pwd1.value)
+      setSession()
       await syncFromServer()
       toast('密码已重置，已自动登录')
       router.replace('/home')

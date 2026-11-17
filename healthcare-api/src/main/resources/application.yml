@@ -1,5 +1,6 @@
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -10,13 +11,31 @@ spring:
     password: ${DB_PASSWORD:healthcare_dev}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
         jdbc:
           time_zone: Asia/Shanghai
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
 
 app:
   dev-mode: ${APP_DEV_MODE:true}
   token-ttl-days: ${APP_TOKEN_TTL_DAYS:7}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175}
+  auth:
+    cookie-name: ${AUTH_COOKIE_NAME:healthcare_token}
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+  rate-limit:
+    send-code-cooldown-seconds: ${SEND_CODE_COOLDOWN_SECONDS:60}
+    send-code-max-per-hour: ${SEND_CODE_MAX_PER_HOUR:10}
+    login-max-attempts-per-10-min: ${LOGIN_MAX_ATTEMPTS_PER_10_MIN:10}
+  sms:
+    webhook-url: ${SMS_WEBHOOK_URL:}
+    webhook-token: ${SMS_WEBHOOK_TOKEN:}

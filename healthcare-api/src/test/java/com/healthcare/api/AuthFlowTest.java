@@ -49,6 +49,15 @@ class AuthFlowTest {
         assertThat(token).isNotBlank();
         assertThat(loginData.get("newUser")).isEqualTo(true);
 
+        // 登录同时下发 HttpOnly Cookie，浏览器端不再保存 token
+        String setCookie = login.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertThat(setCookie).contains("healthcare_token=").contains("HttpOnly");
+        HttpHeaders cookieHeaders = new HttpHeaders();
+        cookieHeaders.add(HttpHeaders.COOKIE, setCookie.substring(0, setCookie.indexOf(';')));
+        ResponseEntity<Map> meByCookie = rest.exchange(
+                base + "/api/me", HttpMethod.GET, new HttpEntity<>(cookieHeaders), Map.class);
+        assertThat(meByCookie.getStatusCode().value()).isEqualTo(200);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         HttpEntity<Void> auth = new HttpEntity<>(headers);

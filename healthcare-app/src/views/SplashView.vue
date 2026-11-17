@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { clearToken, getToken } from '../utils/session'
+import { clearSession, hasSession } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 
 const router = useRouter()
 
 onMounted(async () => {
   let target = '/onboarding'
-  if (getToken()) {
+  if (hasSession()) {
     try {
       await syncFromServer()
       target = '/home'
     } catch {
-      clearToken()
+      clearSession()
     }
   }
   setTimeout(() => router.replace(target), 1200)

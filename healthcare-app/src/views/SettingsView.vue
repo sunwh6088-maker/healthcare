@@ -2,7 +2,7 @@
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { health, stopRemoteSync } from '../utils/healthStore'
-import { clearToken } from '../utils/session'
+import { clearSession } from '../utils/session'
 import { toast } from '../utils/toast'
 import { api } from '../api'
 
@@ -15,7 +15,7 @@ async function logout() {
     // 网络异常时也允许本地退出
   }
   stopRemoteSync()
-  clearToken()
+  clearSession()
   toast('已退出登录')
   router.push('/login')
 }

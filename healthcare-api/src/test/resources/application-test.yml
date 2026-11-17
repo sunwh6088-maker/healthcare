@@ -7,6 +7,18 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  flyway:
+    enabled: false
 
 app:
   dev-mode: true
+  cors:
+    allowed-origins: http://localhost:5173
+  auth:
+    cookie-secure: false
+  rate-limit:
+    send-code-cooldown-seconds: 0
+    send-code-max-per-hour: 1000
+    login-max-attempts-per-10-min: 1000
+  sms:
+    webhook-url: ""

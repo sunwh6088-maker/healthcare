@@ -16,8 +16,8 @@
 先启动数据库和后端（详见 `../healthcare-api/README.md`）：
 
 ```bash
-# 1) MySQL 隔离实例（3307，数据目录 healthcare-api/.mysql-data）
-# 2) Spring Boot 后端（8080）
+# 1) 初始化 MySQL（首次，详见 ../healthcare-api/README.md）
+# 2) Spring Boot 后端（默认 8080；端口被占用时可加 --server.port=8081）
 cd ../healthcare-api
 mvn spring-boot:run
 ```
@@ -73,8 +73,8 @@ healthcare-app/
 │  │  ├─ healthStore.ts        # 全局健康数据（响应式 + localStorage 持久化）
 │  │  ├─ alarm.ts              # 闹钟重复文案（含单测）
 │  │  ├─ validation.ts         # 手机号 / 邮箱校验与脱敏（含单测）
-│  │  ├─ session.ts            # token / 待登录手机号 / 开发验证码
-│  │  └─ request.ts            # fetch 请求封装（自动带 token、401 处理）
+│  │  ├─ session.ts            # 登录态标记 / 待登录手机号 / 开发验证码
+│  │  └─ request.ts            # fetch 请求封装（自动携带 Cookie、401 处理）
 │  └─ views/                   # 27 个页面
 └─ dist/                       # 构建产物（已 gitignore）
 ```
@@ -159,8 +159,9 @@ healthcare-app/
 ## 状态与数据
 
 - 登录后从后端拉取账号与健康数据；未登录只能访问启动/引导/登录/验证码页。
-- 登录态 token 存在 `localStorage`，请求头自动带 `Authorization: Bearer <token>`（生产环境建议改为 HttpOnly Cookie）。
-- 开发模式下后端 `send-code` 会返回 `devCode`，前端自动填充验证码并在页面上显示；生产环境应关闭 `APP_DEV_MODE` 并接入短信服务。
+- 登录 token 由后端写入 HttpOnly Cookie，前端不保存 token，只保留一个非敏感的已登录标记；请求自动携带 Cookie。生产环境请启用 HTTPS 并设置 `AUTH_COOKIE_SECURE=true`。
+- 开发模式下后端 `send-code` 会返回 `devCode`，前端自动填充验证码并在页面上显示；生产环境应关闭 `APP_DEV_MODE` 并配置 `SMS_WEBHOOK_URL`，验证码不再返回给前端。
+- 后端对验证码发送（60 秒冷却、每小时 10 次）和登录尝试（10 分钟 10 次）做了进程内限流；多实例部署时应改为 Redis 等共享存储。
 - 通用 mock 数据集中在 `src/mock/`，发现页、搜索页、添加食物页共用同一份食物数据。
 - `src/utils/healthStore.ts` 用一个响应式对象保存用户资料与健康数据，本地写 `localStorage` 缓存，并在变更后 600ms 防抖同步到后端：
   - 用户：姓名、性别、年龄、身高、体重、手机号、邮箱；
@@ -174,11 +175,21 @@ healthcare-app/
   - 食物记录按「餐次 + 日期」写入 `food_logs`，今日总热量回写 `food_kcal`；
   - 运动记录写入 `exercise_logs`，历史页实时读取；
   - 账号支持昵称、手机号、邮箱修改，以及密码登录 / 修改 / 验证码重置；
-  - 退出登录会同时清除服务端 token；
+  - 退出登录会同时清除服务端 token 与 HttpOnly Cookie；
   - 账户页修改的手机号与邮箱也会持久化；
   - 设置页的通知 / 隐私开关、设备连接 / 添加状态也会持久化。
 - 距离与卡路里为演示估算：步数 × 0.7 米 / 步、步数 × 0.04 千卡 / 步。
 - 测试或需要恢复初始数据时，清除浏览器 `localStorage` 中的 `healthcare-app-state` 即可。
+
+## 部署
+
+仓库根目录提供 `docker-compose.yml`（MySQL + Spring Boot + Nginx 托管构建产物）。复制 `.env.example` 为 `.env`，至少设置 `MYSQL_ROOT_PASSWORD`，然后：
+
+```bash
+docker compose up --build
+```
+
+默认访问 `http://localhost:8088`。生产环境请设置 `APP_DEV_MODE=false`、`AUTH_COOKIE_SECURE=true`，并把 `CORS_ALLOWED_ORIGINS` 改成实际域名。
 
 ## 说明
 

@@ -15,9 +15,11 @@ public class AuthInterceptor implements HandlerInterceptor {
     public static final String USER_ID_ATTR = "userId";
 
     private final TokenService tokenService;
+    private final AuthCookieService authCookies;
 
-    public AuthInterceptor(TokenService tokenService) {
+    public AuthInterceptor(TokenService tokenService, AuthCookieService authCookies) {
         this.tokenService = tokenService;
+        this.authCookies = authCookies;
     }
 
     @Override
@@ -27,13 +29,16 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith("Bearer ")) {
-            Optional<Long> userId = tokenService.resolve(header.substring("Bearer ".length()));
-            if (userId.isPresent()) {
-                request.setAttribute(USER_ID_ATTR, userId.get());
-                return true;
+        Optional<Long> userId = tokenService.resolve(authCookies.readToken(request));
+        if (userId.isEmpty()) {
+            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+            if (header != null && header.startsWith("Bearer ")) {
+                userId = tokenService.resolve(header.substring("Bearer ".length()));
             }
+        }
+        if (userId.isPresent()) {
+            request.setAttribute(USER_ID_ATTR, userId.get());
+            return true;
         }
 
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

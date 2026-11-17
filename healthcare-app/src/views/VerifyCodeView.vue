@@ -8,7 +8,7 @@ import {
   getPendingDevCode,
   getPendingPhone,
   setPendingDevCode,
-  setToken,
+  setSession,
 } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
@@ -87,7 +87,7 @@ async function confirm() {
   verifying.value = true
   try {
     const result = await api.login(phone.value, codes.value.join(''))
-    setToken(result.token)
+    setSession()
     clearPendingPhone()
     await syncFromServer()
     toast('登录成功')

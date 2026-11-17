@@ -1,6 +1,7 @@
 package com.healthcare.api.auth;
 
 import com.healthcare.api.common.ApiException;
+import com.healthcare.api.sms.SmsSender;
 import com.healthcare.api.state.AlarmEntity;
 import com.healthcare.api.state.AlarmRepository;
 import com.healthcare.api.state.HealthStateEntity;
@@ -10,6 +11,7 @@ import com.healthcare.api.user.UserDto;
 import com.healthcare.api.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,25 +29,39 @@ public class AuthService {
     private final AlarmRepository alarms;
     private final VerificationCodeService codes;
     private final TokenService tokens;
+    private final RateLimitService rateLimits;
+    private final SmsSender smsSender;
+    private final boolean devMode;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository users,
                        HealthStateRepository healthStates,
                        AlarmRepository alarms,
                        VerificationCodeService codes,
-                       TokenService tokens) {
+                       TokenService tokens,
+                       RateLimitService rateLimits,
+                       SmsSender smsSender,
+                       @Value("${app.dev-mode:true}") boolean devMode) {
         this.users = users;
         this.healthStates = healthStates;
         this.alarms = alarms;
         this.codes = codes;
         this.tokens = tokens;
+        this.rateLimits = rateLimits;
+        this.smsSender = smsSender;
+        this.devMode = devMode;
     }
 
     public String sendCode(String phone) {
         String normalized = normalize(phone);
         validatePhone(normalized);
+        rateLimits.checkSendCode(normalized);
         String code = codes.issue(normalized);
-        log.info("Dev verification code for {}: {}", normalized, code);
+        if (devMode) {
+            log.info("Dev verification code for {}: {}", normalized, code);
+        } else {
+            smsSender.sendVerificationCode(normalized, code);
+        }
         return code;
     }
 
@@ -53,6 +69,7 @@ public class AuthService {
     public AuthDtos.LoginResponse login(String phone, String code) {
         String normalized = normalize(phone);
         validatePhone(normalized);
+        rateLimits.checkLogin(normalized);
         if (!codes.verify(normalized, code)) {
             throw new ApiException(400, "验证码错误或已过期");
         }
@@ -77,6 +94,7 @@ public class AuthService {
     public AuthDtos.LoginResponse loginWithPassword(String phone, String password) {
         String normalized = normalize(phone);
         validatePhone(normalized);
+        rateLimits.checkLogin(normalized);
         User user = users.findByPhone(normalized)
                 .orElseThrow(() -> new ApiException(400, "手机号或密码错误"));
         if (user.getPasswordHash() == null
@@ -93,6 +111,7 @@ public class AuthService {
     public AuthDtos.LoginResponse resetPassword(String phone, String code, String newPassword) {
         String normalized = normalize(phone);
         validatePhone(normalized);
+        rateLimits.checkLogin(normalized);
         if (!codes.verify(normalized, code)) {
             throw new ApiException(400, "验证码错误或已过期");
         }

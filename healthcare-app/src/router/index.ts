@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { getToken } from '../utils/session'
+import { hasSession } from '../utils/session'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -146,7 +146,7 @@ const publicRoutes = new Set([
   'reset-password',
 ])
 router.beforeEach((to) => {
-  if (!getToken() && !publicRoutes.has(String(to.name))) {
+  if (!hasSession() && !publicRoutes.has(String(to.name))) {
     return { name: 'login' }
   }
   return true

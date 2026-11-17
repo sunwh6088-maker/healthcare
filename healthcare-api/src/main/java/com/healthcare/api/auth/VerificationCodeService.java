@@ -11,11 +11,20 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VerificationCodeService {
 
     private static final int TTL_SECONDS = 300;
+    private static final int MAX_ATTEMPTS = 5;
 
     private final Map<String, Entry> codes = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
-    private record Entry(String code, Instant expiresAt) {
+    private static final class Entry {
+        private final String code;
+        private final Instant expiresAt;
+        private int failedAttempts;
+
+        private Entry(String code, Instant expiresAt) {
+            this.code = code;
+            this.expiresAt = expiresAt;
+        }
     }
 
     public String issue(String phone) {
@@ -25,18 +34,21 @@ public class VerificationCodeService {
     }
 
     public boolean verify(String phone, String code) {
-        Entry entry = codes.get(phone);
-        if (entry == null) {
+        if (phone == null || code == null) {
             return false;
         }
-        if (entry.expiresAt().isBefore(Instant.now())) {
-            codes.remove(phone);
-            return false;
-        }
-        if (!entry.code().equals(code)) {
-            return false;
-        }
-        codes.remove(phone);
-        return true;
+        boolean[] matched = {false};
+        codes.computeIfPresent(phone, (key, entry) -> {
+            if (entry.expiresAt.isBefore(Instant.now())) {
+                return null;
+            }
+            if (entry.code.equals(code)) {
+                matched[0] = true;
+                return null;
+            }
+            entry.failedAttempts++;
+            return entry.failedAttempts >= MAX_ATTEMPTS ? null : entry;
+        });
+        return matched[0];
     }
 }

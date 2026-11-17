@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
-import { setPendingPhone, setPendingDevCode, setToken } from '../utils/session'
+import { setPendingPhone, setPendingDevCode, setSession } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
 import { toast } from '../utils/toast'
 
@@ -50,8 +50,8 @@ async function passwordLogin() {
   }
   loggingIn.value = true
   try {
-    const result = await api.loginPassword(value, password.value)
-    setToken(result.token)
+    await api.loginPassword(value, password.value)
+    setSession()
     await syncFromServer()
     toast('登录成功')
     router.replace('/home')
