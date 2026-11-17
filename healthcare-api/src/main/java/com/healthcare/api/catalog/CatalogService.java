@@ -18,6 +18,7 @@ public class CatalogService {
     }
 
     public CatalogDtos.CatalogResponse load(Long userId) {
+        // 食物目录
         List<CatalogDtos.Food> foods = jdbc.query(
                 "SELECT id, name, portion, calories, emoji, category, is_custom "
                         + "FROM foods ORDER BY sort_order, id",
@@ -30,6 +31,7 @@ public class CatalogService {
                         rs.getString("category"),
                         rs.getBoolean("is_custom")));
 
+        // 运动类型和课程
         List<CatalogDtos.ExerciseType> exerciseTypes = jdbc.query(
                 "SELECT type_key, name, emoji, bg_color, bar_color, kcal "
                         + "FROM exercise_types ORDER BY sort_order, type_key",
@@ -53,6 +55,7 @@ public class CatalogService {
                         rs.getInt("calories"),
                         rs.getString("emoji")));
 
+        // 助眠声音 / 设备 / 饮水份量 / 餐次
         List<CatalogDtos.SleepSound> sleepSounds = jdbc.query(
                 "SELECT id, name, emoji, audio_url FROM sleep_sounds ORDER BY sort_order, id",
                 (rs, rowNum) -> new CatalogDtos.SleepSound(
@@ -88,6 +91,7 @@ public class CatalogService {
                         rs.getString("label"),
                         rs.getString("emoji")));
 
+        // 当前用户的最近和频繁食物
         List<String> recentFoodNames = jdbc.queryForList(
                 "SELECT name FROM food_logs WHERE user_id = ? "
                         + "GROUP BY name ORDER BY MAX(created_at) DESC LIMIT 12",

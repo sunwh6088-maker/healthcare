@@ -10,6 +10,9 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 食物记录业务：写入记录并回写当天总热量。
+ */
 @Service
 public class FoodLogService {
 

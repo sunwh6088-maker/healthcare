@@ -1,3 +1,5 @@
+// 模块：请求层 —— 统一携带 Cookie、处理 401 和 { code, msg, data } 响应。
+
 import { clearSession } from './session'
 
 // 统一封装的请求工具（对应后端 SpringMVC 接口）

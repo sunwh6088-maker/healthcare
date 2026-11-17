@@ -1,3 +1,5 @@
+// 模块：健康数据仓库 —— 全局响应式状态、本地缓存和后端防抖同步。
+
 import { nextTick, reactive, watch } from 'vue'
 import { api, type StateDto, type User } from '../api'
 import { hasSession } from './session'
@@ -42,6 +44,7 @@ export interface HealthState {
 
 const STORAGE_KEY = 'healthcare-app-state'
 
+// ===== 默认值 =====
 const defaults: HealthState = {
   userName: '杰西·比伯',
   gender: null,
@@ -104,6 +107,7 @@ export const health = reactive<HealthState>(loadState())
 let applyingRemote = false
 let remoteTimer: ReturnType<typeof setTimeout> | null = null
 
+// ===== 本地状态 → 后端 DTO =====
 function toServerState(): StateDto {
   return {
     health: {
@@ -168,6 +172,7 @@ function applyServerState(state: StateDto) {
   }))
 }
 
+// ===== 远端同步：变更后 600ms 防抖保存 =====
 function scheduleRemoteSave() {
   if (!hasSession() || applyingRemote) return
   if (remoteTimer) clearTimeout(remoteTimer)
@@ -214,6 +219,7 @@ export function stopRemoteSync() {
   }
 }
 
+// ===== 工具函数 =====
 // 演示用估算：平均步幅约 0.7 米、每步约 0.04 千卡
 export function stepsToKm(steps: number): string {
   return (steps * 0.0007).toFixed(1)

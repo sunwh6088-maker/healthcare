@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 食物记录接口：按天查询、新增和删除。
+ */
 @RestController
 @RequestMapping("/api/food-logs")
 public class FoodLogController {

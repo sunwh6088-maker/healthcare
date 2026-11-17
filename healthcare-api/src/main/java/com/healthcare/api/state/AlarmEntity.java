@@ -7,6 +7,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+/**
+ * 闹钟实体：时间、标签、重复星期和开关。
+ */
 @Entity
 @Table(name = "alarms")
 public class AlarmEntity {

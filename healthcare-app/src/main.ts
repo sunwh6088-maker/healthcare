@@ -1,3 +1,5 @@
+// 模块：应用入口 —— 注册全局组件/提示并挂载路由。
+
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'

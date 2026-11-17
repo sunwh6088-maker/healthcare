@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * 认证业务：验证码校验、用户创建、密码处理和 token 签发。
+ */
 @Service
 public class AuthService {
 

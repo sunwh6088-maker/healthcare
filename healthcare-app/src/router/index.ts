@@ -1,3 +1,5 @@
+// 模块：路由模块 —— 页面懒加载、登录守卫、页面标题和 404 兜底。
+
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { hasSession } from '../utils/session'
 

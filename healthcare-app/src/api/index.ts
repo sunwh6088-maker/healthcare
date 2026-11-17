@@ -1,3 +1,5 @@
+// 模块：API 层 —— 封装后端接口和统一类型定义。
+
 import request from '../utils/request'
 
 export interface User {
@@ -155,6 +157,7 @@ export interface CatalogResponse {
 }
 
 export const api = {
+  // 认证：验证码 / 密码登录 / 重置密码 / 退出登录
   sendCode(phone: string) {
     return request<SendCodeResponse>('/auth/send-code', {
       method: 'POST',
@@ -194,6 +197,7 @@ export const api = {
     return request<void>('/auth/logout', { method: 'POST' })
   },
 
+  // 账号资料
   me() {
     return request<User>('/me')
   },
@@ -205,6 +209,7 @@ export const api = {
     })
   },
 
+  // 基础数据 + 健康状态
   getCatalog() {
     return request<CatalogResponse>('/catalog')
   },
@@ -220,6 +225,7 @@ export const api = {
     })
   },
 
+  // 食物记录
   listFoodLogs(date: string) {
     return request<FoodLogSummary>(`/food-logs?date=${encodeURIComponent(date)}`)
   },
@@ -242,6 +248,7 @@ export const api = {
     return request<void>(`/food-logs/${id}`, { method: 'DELETE' })
   },
 
+  // 运动记录
   listExerciseLogs() {
     return request<ExerciseLog[]>('/exercise-logs')
   },

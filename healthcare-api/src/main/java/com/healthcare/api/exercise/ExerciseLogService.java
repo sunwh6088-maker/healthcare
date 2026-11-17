@@ -9,6 +9,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
+/**
+ * 运动记录业务：类型/日期校验、增删改和活动量汇总。
+ */
 @Service
 public class ExerciseLogService {
 
@@ -20,6 +23,7 @@ public class ExerciseLogService {
         this.jdbc = jdbc;
     }
 
+    // ===== 查询 =====
     @Transactional(readOnly = true)
     public List<ExerciseLogDtos.ExerciseLogDto> list(Long userId) {
         return logs.findByUserIdOrderByLogDateDescIdDesc(userId).stream()
@@ -27,6 +31,7 @@ public class ExerciseLogService {
                 .toList();
     }
 
+    // ===== 新增 / 编辑 / 删除 =====
     @Transactional
     public ExerciseLogDtos.ExerciseLogDto create(
             Long userId, ExerciseLogDtos.CreateExerciseLogRequest request) {
@@ -61,6 +66,7 @@ public class ExerciseLogService {
         recalculateAggregates(userId);
     }
 
+    // ===== 请求校验：类型来自 exercise_types 表，日期必须为 yyyy-MM-dd =====
     private void apply(ExerciseLogEntity entity, ExerciseLogDtos.CreateExerciseLogRequest request) {
         if (!exerciseTypeExists(request.type())) {
             throw new ApiException(400, "运动类型参数不正确");
@@ -85,6 +91,7 @@ public class ExerciseLogService {
         return count != null && count > 0;
     }
 
+    // ===== 活动量汇总 =====
     /**
      * 活动时长和运动次数直接由运动记录汇总，避免前端累加与多设备不同步。
      */

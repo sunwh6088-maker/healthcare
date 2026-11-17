@@ -2,6 +2,9 @@ package com.healthcare.api.catalog;
 
 import java.util.List;
 
+/**
+ * 基础数据 DTO：食物、运动、课程、设备、份量和餐次。
+ */
 public final class CatalogDtos {
 
     private CatalogDtos() {

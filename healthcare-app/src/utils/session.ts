@@ -1,3 +1,5 @@
+// 模块：会话工具 —— 登录标记、待登录手机号和开发验证码缓存。
+
 const SESSION_KEY = 'healthcare-session'
 const PENDING_PHONE_KEY = 'healthcare-pending-phone'
 const PENDING_CODE_KEY = 'healthcare-pending-code'

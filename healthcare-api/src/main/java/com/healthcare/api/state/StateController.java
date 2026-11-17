@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 健康状态接口：读取/整体保存健康数据和闹钟。
+ */
 @RestController
 @RequestMapping("/api/state")
 public class StateController {

@@ -4,6 +4,9 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/**
+ * 账号返回 DTO：隐藏密码等敏感字段。
+ */
 public record UserDto(Long id, String name, String phone, String email, boolean hasPassword) {
 
     public static UserDto from(User user) {

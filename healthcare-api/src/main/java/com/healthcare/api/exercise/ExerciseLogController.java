@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * 运动记录接口：查询、新增、编辑和删除。
+ */
 @RestController
 @RequestMapping("/api/exercise-logs")
 public class ExerciseLogController {

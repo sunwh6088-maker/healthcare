@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：运动日历 —— 按本周真实记录展示活跃天数和柱状图。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

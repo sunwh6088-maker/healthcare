@@ -7,6 +7,9 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * 验证码服务：6 位验证码、5 分钟有效、最多 5 次尝试。
+ */
 @Service
 public class VerificationCodeService {
 

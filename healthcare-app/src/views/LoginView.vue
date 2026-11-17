@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：登录页 —— 验证码登录和密码登录。
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'

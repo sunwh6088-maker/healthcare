@@ -11,6 +11,9 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * 运动记录实体：日期、类型、时长和热量。
+ */
 @Entity
 @Table(name = "exercise_logs")
 public class ExerciseLogEntity {

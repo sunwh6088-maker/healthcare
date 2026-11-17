@@ -1,3 +1,5 @@
+// 模块：身体数据校验 —— 体重、身高、年龄范围。
+
 export interface BodyInfo {
   weightKg: number
   heightCm: number

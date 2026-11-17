@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：搜索页 —— 按名称/份量过滤食物目录。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

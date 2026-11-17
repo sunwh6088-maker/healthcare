@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：发现页 —— 频繁/最近/自定义食物分类，数据来自数据库目录。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { catalog, catalogStatus, loadCatalog, pickFoods } from '../utils/catalog'

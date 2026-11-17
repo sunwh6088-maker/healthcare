@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：睡眠页 —— 睡眠时长、闹钟管理和助眠声音。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

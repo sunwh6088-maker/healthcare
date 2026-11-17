@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：我的页 —— 个人资料和功能入口。
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'

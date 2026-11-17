@@ -3,6 +3,9 @@ package com.healthcare.api.state;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * 健康状态和闹钟的请求/响应 DTO。
+ */
 public record StateDto(HealthDto health, List<AlarmDto> alarms) {
 
     public record HealthDto(

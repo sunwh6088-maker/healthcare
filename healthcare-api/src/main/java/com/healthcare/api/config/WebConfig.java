@@ -9,6 +9,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 
+/**
+ * Web 配置：登录拦截器和 CORS 白名单。
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 

@@ -9,6 +9,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 健康状态实体：步数、饮水、睡眠、设备和目标等字段。
+ */
 @Entity
 @Table(name = "health_states")
 public class HealthStateEntity {

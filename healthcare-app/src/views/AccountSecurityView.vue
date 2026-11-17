@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：账户与安全 —— 手机号/邮箱、密码、设备与注销入口。
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 认证接口：验证码/密码登录、重置密码和退出登录。
+ */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

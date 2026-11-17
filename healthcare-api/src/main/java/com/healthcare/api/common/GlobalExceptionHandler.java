@@ -8,6 +8,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/**
+ * 全局异常处理：统一业务错误码和 HTTP 状态。
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

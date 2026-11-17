@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：目标跟踪 —— 活跃目标进度和可编辑的运动历史。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

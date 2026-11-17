@@ -9,6 +9,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.util.Optional;
 
+/**
+ * 登录拦截器：从 HttpOnly Cookie 或 Bearer 头解析 token。
+ */
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 

@@ -1,3 +1,5 @@
+// 模块：全局轻提示 —— 在手机壳内显示短暂消息。
+
 export function toast(msg: string) {
   document.querySelector('.toast')?.remove()
   const el = document.createElement('div')

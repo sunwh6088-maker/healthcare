@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：验证码页 —— 输入验证码、重发和自动填充开发验证码。
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NumericKeypad from '../components/NumericKeypad.vue'

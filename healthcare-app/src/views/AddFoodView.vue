@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：添加食物 —— 选择餐次/日期并写入后端食物记录。
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

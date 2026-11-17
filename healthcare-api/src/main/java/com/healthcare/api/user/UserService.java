@@ -4,6 +4,9 @@ import com.healthcare.api.common.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 账号业务：手机号、邮箱、昵称和密码更新。
+ */
 @Service
 public class UserService {
 

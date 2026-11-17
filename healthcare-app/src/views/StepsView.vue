@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：步数页 —— 日/周/月视图和步数统计。
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

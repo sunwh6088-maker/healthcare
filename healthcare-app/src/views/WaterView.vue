@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：饮水页 —— 选择份量并累加今日饮水量。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'

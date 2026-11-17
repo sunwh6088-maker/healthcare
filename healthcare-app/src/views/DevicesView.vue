@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：设备页 —— 设备目录、连接状态、电量和同步时间。
 import { computed, onMounted } from 'vue'
 import { health } from '../utils/healthStore'
 import { catalog, loadCatalog } from '../utils/catalog'

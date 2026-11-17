@@ -1,3 +1,5 @@
+// 模块：表单校验 —— 手机号、邮箱校验与脱敏。
+
 // 账号信息校验与脱敏
 export function isValidPhone(value: string): boolean {
   return /^\d{7,15}$/.test(value.replace(/\s/g, ''))

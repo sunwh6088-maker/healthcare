@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：运动记录弹层 —— 新增、编辑和删除运动记录。
 import { computed, nextTick, ref, watch } from 'vue'
 import BottomSheet from './BottomSheet.vue'
 import SegmentedControl from './SegmentedControl.vue'
@@ -19,6 +20,7 @@ const emit = defineEmits<{
   (e: 'deleted', id: number): void
 }>()
 
+// ===== 表单状态 =====
 const type = ref('')
 const date = ref(todayISO())
 const minutes = ref(30)
@@ -38,6 +40,7 @@ function recalcCalories() {
   calories.value = Math.max(0, Math.round((sport.kcal * Number(minutes.value)) / 30))
 }
 
+// ===== 打开弹层时初始化：新增用默认类型，编辑用原记录 =====
 watch(
   () => props.open,
   async (open) => {
@@ -85,6 +88,7 @@ watch([type, minutes], () => {
   if (!initializing.value && props.open) recalcCalories()
 })
 
+// ===== 保存与删除 =====
 async function save() {
   if (!type.value) {
     toast('请选择运动类型')

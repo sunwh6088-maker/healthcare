@@ -11,6 +11,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 用户实体：手机号、邮箱、昵称和密码哈希。
+ */
 @Entity
 @Table(name = "users")
 public class User {

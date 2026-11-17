@@ -1,3 +1,5 @@
+// 模块：返回逻辑 —— 优先浏览器历史，否则回退到指定页面。
+
 import type { Router } from 'vue-router'
 
 /**

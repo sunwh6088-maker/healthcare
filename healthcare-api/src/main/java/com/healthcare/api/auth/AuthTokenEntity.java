@@ -10,6 +10,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 登录 token 实体：只保存 SHA-256 哈希和过期时间。
+ */
 @Entity
 @Table(name = "auth_tokens")
 public class AuthTokenEntity {

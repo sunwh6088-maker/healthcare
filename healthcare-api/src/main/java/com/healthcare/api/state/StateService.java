@@ -11,6 +11,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * 健康状态业务：默认值、校验、DTO 转换和闹钟替换。
+ */
 @Service
 public class StateService {
 

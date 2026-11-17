@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：顶部导航栏 —— 返回、标题和右侧插槽。
 // 顶部导航：返回按钮 + 标题 + 右侧操作区
 withDefaults(defineProps<{ title: string; light?: boolean }>(), { light: false })
 defineEmits<{ back: [] }>()

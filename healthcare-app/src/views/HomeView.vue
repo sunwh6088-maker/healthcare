@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：首页 —— 步数进度和食物/睡眠/饮水/运动数据卡。
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'

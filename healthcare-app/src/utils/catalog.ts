@@ -1,3 +1,5 @@
+// 模块：基础数据仓库 —— 从 /api/catalog 加载食物、运动、设备等目录。
+
 import { reactive } from 'vue'
 import { api, type CatalogFood, type CatalogResponse } from '../api'
 

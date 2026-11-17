@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 账号接口：当前账号资料、修改资料和密码。
+ */
 @RestController
 @RequestMapping("/api/me")
 public class UserController {

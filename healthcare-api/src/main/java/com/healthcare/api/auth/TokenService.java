@@ -14,6 +14,9 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
 
+/**
+ * Token 服务：生成随机 token、哈希存储、过期校验和撤销。
+ */
 @Service
 public class TokenService {
 

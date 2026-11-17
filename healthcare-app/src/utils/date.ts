@@ -1,3 +1,5 @@
+// 模块：日期工具 —— ISO 日期和中文日期格式化。
+
 export function todayISO() {
   const date = new Date()
   const year = date.getFullYear()

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：历史页 —— 运动记录筛选、编辑和删除。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

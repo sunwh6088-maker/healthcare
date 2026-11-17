@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：数字键盘 —— 登录验证码等场景复用。
 // 数字键盘（对照设计稿 Light / Numeric）：1-9 / 0 / 退格
 defineEmits<{ (e: 'key', k: string): void; (e: 'delete'): void }>()
 

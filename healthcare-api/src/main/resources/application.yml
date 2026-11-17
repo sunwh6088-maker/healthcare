@@ -1,3 +1,4 @@
+# 服务端口；反向代理后通过 X-Forwarded-* 识别协议和主机
 server:
   port: 8080
   forward-headers-strategy: framework
@@ -5,10 +6,12 @@ server:
 spring:
   application:
     name: healthcare-api
+  # 数据源：生产环境通过 DB_URL / DB_USER / DB_PASSWORD 覆盖
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/healthcare?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8}
     username: ${DB_USER:healthcare}
     password: ${DB_PASSWORD:healthcare_dev}
+  # JPA 只校验实体与表结构是否一致，建表/改表交给 Flyway
   jpa:
     hibernate:
       ddl-auto: validate
@@ -17,12 +20,14 @@ spring:
       hibernate:
         jdbc:
           time_zone: Asia/Shanghai
+  # Flyway 迁移：已有数据库会先 baseline，后续结构变更新增 V3、V4...
   flyway:
     enabled: true
     baseline-on-migrate: true
     baseline-version: 0
     locations: classpath:db/migration
 
+# 应用配置：开发模式、跨域、登录 Cookie、限流和短信 Webhook
 app:
   dev-mode: ${APP_DEV_MODE:true}
   token-ttl-days: ${APP_TOKEN_TTL_DAYS:7}

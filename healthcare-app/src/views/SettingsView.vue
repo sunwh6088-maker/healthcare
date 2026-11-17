@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：设置页 —— 通知/隐私开关和退出登录。
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { health, stopRemoteSync } from '../utils/healthStore'

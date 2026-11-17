@@ -1,3 +1,5 @@
+// 模块：餐次工具 —— 从基础数据中读取餐次名称和图标。
+
 import { catalog } from './catalog'
 
 export type MealKey = string

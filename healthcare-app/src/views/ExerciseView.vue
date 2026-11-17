@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：运动页 —— 运动类型、课程、今日记录和目标入口。
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

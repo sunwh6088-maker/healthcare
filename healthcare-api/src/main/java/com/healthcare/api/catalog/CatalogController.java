@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 基础数据接口：一次性返回食物/运动/设备等目录。
+ */
 @RestController
 @RequestMapping("/api/catalog")
 public class CatalogController {

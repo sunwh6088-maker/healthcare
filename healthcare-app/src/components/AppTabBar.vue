@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：底部 Tab 栏 —— 根据当前路由高亮。
 // 底部 Tab 栏（由数据驱动）
 const tabs = [
   { to: '/home', icon: '🏠', label: '首页' },

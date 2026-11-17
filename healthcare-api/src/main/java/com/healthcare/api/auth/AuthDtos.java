@@ -4,6 +4,9 @@ import com.healthcare.api.user.UserDto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * 认证 DTO：登录、验证码和密码相关请求/响应。
+ */
 public final class AuthDtos {
 
     private AuthDtos() {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：食物页 —— 热量圆环、三餐记录和卡路里图表。
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'

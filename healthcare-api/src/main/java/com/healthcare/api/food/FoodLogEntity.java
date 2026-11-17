@@ -11,6 +11,9 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/**
+ * 食物记录实体：日期、餐次、名称、份量、热量和图标。
+ */
 @Entity
 @Table(name = "food_logs")
 public class FoodLogEntity {

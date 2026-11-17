@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// 模块：应用外壳 —— 手机外框、页面过渡、底部 Tab 栏和滚动复位。
 import { nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
