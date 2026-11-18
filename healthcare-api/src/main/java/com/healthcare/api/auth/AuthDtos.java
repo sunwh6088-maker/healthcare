@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.time.Instant;
+
 /**
  * 认证 DTO：登录、验证码和密码相关请求/响应。
  */
@@ -49,5 +51,15 @@ public final class AuthDtos {
 
     /** 服务内部使用的登录结果，token 由 Controller 写入 Cookie。 */
     public record IssuedLogin(String token, UserDto user, boolean newUser) {
+    }
+
+    /** 登录设备列表项：不暴露 token 本身。 */
+    public record SessionDto(
+            Long id,
+            String device,
+            String ip,
+            Instant createdAt,
+            Instant expiresAt,
+            boolean current) {
     }
 }

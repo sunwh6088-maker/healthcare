@@ -150,10 +150,43 @@ class AuthFlowTest {
         String passwordSetCookie = passwordLogin.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
         assertThat(passwordSetCookie).contains("healthcare_token=").contains("HttpOnly");
 
-        // 服务端退出登录，该 Cookie 失效
         HttpHeaders passwordHeaders = new HttpHeaders();
         passwordHeaders.add(
                 HttpHeaders.COOKIE, passwordSetCookie.substring(0, passwordSetCookie.indexOf(';')));
+
+        // 登录设备列表：当前会话 + 密码登录产生的第二个会话
+        ResponseEntity<Map> sessionsResp = rest.exchange(
+                base + "/api/me/sessions", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        assertThat(sessionsResp.getStatusCode().value()).isEqualTo(200);
+        List<?> sessions = (List<?>) sessionsResp.getBody().get("data");
+        assertThat(sessions).hasSize(2);
+        List<Map<?, ?>> sessionMaps = sessions.stream()
+                .<Map<?, ?>>map(session -> (Map<?, ?>) session)
+                .toList();
+        assertThat(sessionMaps.stream()
+                .filter(session -> Boolean.TRUE.equals(session.get("current")))
+                .toList()).hasSize(1);
+        Map<?, ?> otherSession = sessionMaps.stream()
+                .filter(session -> !Boolean.TRUE.equals(session.get("current")))
+                .findFirst()
+                .orElseThrow();
+        long otherSessionId = ((Number) otherSession.get("id")).longValue();
+
+        // 退出其他设备后，该会话的 Cookie 立即失效
+        ResponseEntity<Map> revokeOther = rest.exchange(
+                base + "/api/me/sessions/" + otherSessionId,
+                HttpMethod.DELETE,
+                new HttpEntity<>(headers),
+                Map.class);
+        assertThat(revokeOther.getStatusCode().value()).isEqualTo(200);
+        ResponseEntity<String> otherAfterRevoke = rest.exchange(
+                base + "/api/state",
+                HttpMethod.GET,
+                new HttpEntity<>(passwordHeaders),
+                String.class);
+        assertThat(otherAfterRevoke.getStatusCode().value()).isEqualTo(401);
+
+        // 服务端退出登录，该 Cookie 失效
         ResponseEntity<Map> logout = rest.exchange(
                 base + "/api/auth/logout",
                 HttpMethod.POST,

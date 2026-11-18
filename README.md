@@ -92,6 +92,8 @@ CI 位于 `.github/workflows/`：`frontend-ci.yml` 和 `backend-ci.yml` 按改�
 - 登录 token 使用 HttpOnly Cookie，前端只在 localStorage 记录一个非敏感的已登录标记。
 - 账号安全：登录 token 只存在于 HttpOnly Cookie；密码 8-64 位且含字母和数字；修改手机号需新号码短信验证；
   写接口校验 Origin/Referer 防 CSRF；登录、验证码和改绑手机号均有频率限制。
+- 登录设备：记录每次登录的设备与 IP，可在「账户与安全」查看并单独退出某台设备或一键退出其他设备；
+  修改密码保留当前会话、重置密码撤销全部会话。
 - 合规能力：登录页需同意《用户协议》《隐私政策》；设置页可导出全部个人数据（JSON）；
   账号注销会级联删除健康数据、记录和头像文件。
 - 头像保存在 `APP_UPLOAD_DIR`（Docker 中为 `/app/data/uploads`），仅接受 JPG/PNG/WebP，最大 2MB。

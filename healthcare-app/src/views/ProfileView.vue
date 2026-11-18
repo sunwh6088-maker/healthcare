@@ -9,12 +9,29 @@ import { toast } from '../utils/toast'
 const router = useRouter()
 const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
 
-// 头像上传：点击头像选择本地图片，前端先做类型/大小校验
+// 头像上传：点击头像先选择「更换/移除」，再选择本地图片
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
+const avatarSheetOpen = ref(false)
 
 function pickAvatar() {
   fileInput.value?.click()
+}
+
+function chooseAvatar() {
+  avatarSheetOpen.value = false
+  pickAvatar()
+}
+
+async function removeAvatar() {
+  try {
+    const user = await api.deleteAvatar()
+    health.avatarUrl = user.avatarUrl
+    avatarSheetOpen.value = false
+    toast('头像已移除')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '头像移除失败')
+  }
 }
 
 async function onAvatarChange(event: Event) {
@@ -52,8 +69,8 @@ async function onAvatarChange(event: Event) {
       <button
         type="button"
         class="avatar"
-        :aria-label="uploading ? '正在上传头像' : '更换头像'"
-        @click="pickAvatar"
+        :aria-label="uploading ? '正在上传头像' : '管理头像'"
+        @click="avatarSheetOpen = true"
       >
         <img v-if="health.avatarUrl" :src="health.avatarUrl" alt="头像" />
         <span v-else>🧑</span>
@@ -69,6 +86,18 @@ async function onAvatarChange(event: Event) {
       <h1 class="name">{{ health.userName }}</h1>
       <p class="bio">保持健康，保持活力，遇见更好的自己。</p>
     </div>
+
+    <!-- 头像操作 -->
+    <BottomSheet :open="avatarSheetOpen" @close="avatarSheetOpen = false">
+      <h3 class="sheet-title">头像</h3>
+      <div class="avatar-actions">
+        <button class="btn-primary" @click="chooseAvatar">更换头像</button>
+        <button v-if="health.avatarUrl" class="remove-avatar" @click="removeAvatar">
+          移除头像
+        </button>
+        <button class="cancel-avatar" @click="avatarSheetOpen = false">取消</button>
+      </div>
+    </BottomSheet>
 
     <!-- 基础数据 -->
     <div class="between mt-20">
@@ -185,6 +214,30 @@ async function onAvatarChange(event: Event) {
 
 .file-input {
   display: none;
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.remove-avatar {
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--accent);
+  font-size: var(--fs-headline3);
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
+}
+
+.cancel-avatar {
+  width: 100%;
+  padding: 8px;
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+  text-align: center;
 }
 
 .name {

@@ -1,5 +1,6 @@
 package com.healthcare.api.auth;
 
+import com.healthcare.api.common.ApiException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -32,6 +34,10 @@ public class TokenService {
     }
 
     public String issue(Long userId) {
+        return issue(userId, null, null);
+    }
+
+    public String issue(Long userId, String userAgent, String ipAddress) {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -40,8 +46,36 @@ public class TokenService {
         entity.setUserId(userId);
         entity.setTokenHash(hash(rawToken));
         entity.setExpiresAt(Instant.now().plus(ttlDays, ChronoUnit.DAYS));
+        entity.setUserAgent(truncate(userAgent, 255));
+        entity.setIpAddress(truncate(ipAddress, 45));
         tokens.save(entity);
         return rawToken;
+    }
+
+    /** 当前用户的全部有效会话；current 标记本次请求使用的会话。 */
+    public List<AuthDtos.SessionDto> sessions(Long userId, String currentRawToken) {
+        String currentHash = currentRawToken == null || currentRawToken.isBlank()
+                ? null
+                : hash(currentRawToken);
+        Instant now = Instant.now();
+        return tokens.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .filter(token -> token.getExpiresAt().isAfter(now))
+                .map(token -> new AuthDtos.SessionDto(
+                        token.getId(),
+                        DeviceNames.describe(token.getUserAgent()),
+                        token.getIpAddress(),
+                        token.getCreatedAt(),
+                        token.getExpiresAt(),
+                        token.getTokenHash().equals(currentHash)))
+                .toList();
+    }
+
+    /** 撤销指定会话；只能操作自己的会话。 */
+    @Transactional
+    public void revokeSession(Long userId, Long sessionId) {
+        AuthTokenEntity token = tokens.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new ApiException(404, "登录会话不存在"));
+        tokens.delete(token);
     }
 
     public Optional<Long> resolve(String rawToken) {
@@ -84,6 +118,14 @@ public class TokenService {
     @Transactional
     public void deleteExpiredTokens() {
         tokens.deleteByExpiresAtBefore(Instant.now());
+    }
+
+    private String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.length() <= maxLength ? trimmed : trimmed.substring(0, maxLength);
     }
 
     private String hash(String rawToken) {

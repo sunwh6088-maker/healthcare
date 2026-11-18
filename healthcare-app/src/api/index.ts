@@ -58,6 +58,15 @@ export interface PhoneCodeResponse {
   devCode?: string
 }
 
+export interface LoginSession {
+  id: number
+  device: string
+  ip: string | null
+  createdAt: string
+  expiresAt: string
+  current: boolean
+}
+
 export interface SendCodeResponse {
   message: string
   devCode?: string
@@ -242,6 +251,19 @@ export const api = {
 
   deleteMe() {
     return request<void>('/me', { method: 'DELETE' })
+  },
+
+  // 登录设备
+  listSessions() {
+    return request<LoginSession[]>('/me/sessions')
+  },
+
+  revokeSession(id: number) {
+    return request<void>(`/me/sessions/${id}`, { method: 'DELETE' })
+  },
+
+  revokeOtherSessions() {
+    return request<void>('/me/sessions', { method: 'DELETE' })
   },
 
   /** 导出账号、健康状态、食物与运动记录（JSON）。 */

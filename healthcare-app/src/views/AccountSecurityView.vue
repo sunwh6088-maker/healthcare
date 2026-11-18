@@ -13,7 +13,7 @@ import {
   maskPhone,
   normalizePhone,
 } from '../utils/validation'
-import { api } from '../api'
+import { api, type LoginSession } from '../api'
 
 const router = useRouter()
 
@@ -23,37 +23,64 @@ const deleteOpen = ref(false)
 const deleteText = ref('')
 const deleting = ref(false)
 
-const deviceLabel = computed(() => {
-  const ua = navigator.userAgent
-  const browser = /Edg\//.test(ua)
-    ? 'Edge'
-    : /Chrome\//.test(ua)
-      ? 'Chrome'
-      : /Firefox\//.test(ua)
-        ? 'Firefox'
-        : /Safari\//.test(ua)
-          ? 'Safari'
-          : '浏览器'
-  const system = /Windows NT 10/.test(ua)
-    ? 'Windows'
-    : /Mac OS X/.test(ua)
-      ? 'macOS'
-      : /Android/.test(ua)
-        ? 'Android'
-        : /iPhone|iPad/.test(ua)
-          ? 'iOS'
-          : '本机'
-  return `${system} · ${browser}`
+// 登录设备管理
+const sessions = ref<LoginSession[]>([])
+const confirmRevokeId = ref<number | null>(null)
+
+onMounted(() => {
+  void loadSecurity()
 })
 
-onMounted(async () => {
+async function loadSecurity() {
   try {
     const user = await api.me()
     hasPassword.value = user.hasPassword
   } catch {
     // 资料加载失败时保留占位
   }
-})
+  try {
+    sessions.value = await api.listSessions()
+  } catch {
+    // 设备列表加载失败时保持为空
+  }
+}
+
+function formatSessionTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  const hour = String(date.getHours()).padStart(2, '0')
+  const minute = String(date.getMinutes()).padStart(2, '0')
+  return `${month}月${day}日 ${hour}:${minute}`
+}
+
+async function revokeSession(session: LoginSession) {
+  if (confirmRevokeId.value !== session.id) {
+    confirmRevokeId.value = session.id
+    toast('再次点击即可退出该设备')
+    return
+  }
+  try {
+    await api.revokeSession(session.id)
+    sessions.value = sessions.value.filter((item) => item.id !== session.id)
+    confirmRevokeId.value = null
+    toast('已退出该设备')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '退出设备失败')
+  }
+}
+
+async function revokeOthers() {
+  try {
+    await api.revokeOtherSessions()
+    sessions.value = sessions.value.filter((item) => item.current)
+    confirmRevokeId.value = null
+    toast('已退出其他设备')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '操作失败')
+  }
+}
 
 type EditField = 'name' | 'phone' | 'email'
 const editField = ref<EditField | null>(null)
@@ -284,14 +311,27 @@ async function deleteAccount() {
       </button>
     </div>
 
-    <!-- 当前登录设备 -->
-    <div class="device card mt-16">
-      <span class="d-dot"></span>
-      <div class="d-info">
-        <h4>{{ deviceLabel }}</h4>
-        <p>当前设备 · 刚刚活跃</p>
+    <!-- 登录设备 -->
+    <h3 class="section-title mt-20">登录设备</h3>
+    <div class="menu card mt-12">
+      <div v-for="session in sessions" :key="session.id" class="session-row">
+        <span class="d-dot" :class="{ muted: !session.current }"></span>
+        <div class="d-info">
+          <h4>
+            {{ session.device }}
+            <span v-if="session.current" class="current-badge">当前</span>
+          </h4>
+          <p>{{ session.ip || '未知 IP' }} · {{ formatSessionTime(session.createdAt) }} 登录</p>
+        </div>
+        <button v-if="!session.current" class="session-exit" @click="revokeSession(session)">
+          {{ confirmRevokeId === session.id ? '确认退出' : '退出' }}
+        </button>
       </div>
+      <p v-if="!sessions.length" class="session-tip">暂无登录设备信息</p>
     </div>
+    <button v-if="sessions.length > 1" class="revoke-others mt-12" @click="revokeOthers">
+      退出其他设备
+    </button>
 
     <button class="danger mt-24" @click="deleteOpen = true">注销账户</button>
     <p class="danger-tip">注销后所有健康数据将被清除，且无法恢复</p>
@@ -483,11 +523,16 @@ async function deleteAccount() {
   color: var(--neutral-2);
 }
 
-.device {
+.session-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 20px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--neutral-3);
+}
+
+.session-row:last-of-type {
+  border-bottom: none;
 }
 
 .d-dot {
@@ -496,6 +541,47 @@ async function deleteAccount() {
   border-radius: 50%;
   background: var(--primary);
   flex-shrink: 0;
+}
+
+.d-dot.muted {
+  background: var(--neutral-3);
+}
+
+.current-badge {
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-2);
+  color: var(--primary);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+
+.session-exit {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: #f7f9f8;
+  color: var(--accent);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+
+.session-tip {
+  padding: 14px 20px;
+  font-size: var(--fs-caption);
+  color: var(--neutral-2);
+}
+
+.revoke-others {
+  width: 100%;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--accent);
+  font-size: var(--fs-body2);
+  font-weight: 600;
+  box-shadow: var(--shadow-card);
 }
 
 .d-info h4 {

@@ -57,7 +57,8 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse response) {
         rateLimits.checkLoginIp(clientIp(httpRequest));
-        AuthDtos.IssuedLogin result = authService.login(request.phone(), request.code());
+        AuthDtos.IssuedLogin result = authService.login(
+                request.phone(), request.code(), userAgent(httpRequest), clientIp(httpRequest));
         authCookies.writeToken(response, result.token());
         return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
@@ -68,8 +69,8 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse response) {
         rateLimits.checkLoginIp(clientIp(httpRequest));
-        AuthDtos.IssuedLogin result =
-                authService.loginWithPassword(request.phone(), request.password());
+        AuthDtos.IssuedLogin result = authService.loginWithPassword(
+                request.phone(), request.password(), userAgent(httpRequest), clientIp(httpRequest));
         authCookies.writeToken(response, result.token());
         return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
@@ -80,8 +81,9 @@ public class AuthController {
             HttpServletRequest httpRequest,
             HttpServletResponse response) {
         rateLimits.checkLoginIp(clientIp(httpRequest));
-        AuthDtos.IssuedLogin result =
-                authService.resetPassword(request.phone(), request.code(), request.newPassword());
+        AuthDtos.IssuedLogin result = authService.resetPassword(
+                request.phone(), request.code(), request.newPassword(),
+                userAgent(httpRequest), clientIp(httpRequest));
         authCookies.writeToken(response, result.token());
         return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
@@ -110,5 +112,9 @@ public class AuthController {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private String userAgent(HttpServletRequest request) {
+        return request.getHeader(HttpHeaders.USER_AGENT);
     }
 }

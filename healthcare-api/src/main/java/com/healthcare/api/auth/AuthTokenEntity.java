@@ -30,6 +30,12 @@ public class AuthTokenEntity {
     @Column(nullable = false)
     private Instant expiresAt;
 
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
+
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -68,5 +74,21 @@ public class AuthTokenEntity {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public String getUserAgent() {
+        return userAgent;
+    }
+
+    public void setUserAgent(String userAgent) {
+        this.userAgent = userAgent;
+    }
+
+    public String getIpAddress() {
+        return ipAddress;
+    }
+
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
     }
 }

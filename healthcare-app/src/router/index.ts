@@ -112,7 +112,11 @@ const router = createRouter({
       component: () => import('../views/GoalTrackingView.vue'),
     },
     // 404 兜底
-    { path: '/:pathMatch(.*)*', redirect: '/home' },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFoundView.vue'),
+    },
   ],
 })
 
@@ -147,6 +151,7 @@ const pageTitles: Record<string, string> = {
   about: '关于我们',
   terms: '用户协议',
   privacy: '隐私政策',
+  'not-found': '页面不存在',
   'forgot-password': '忘记密码',
   'change-password': '更改密码',
   'reset-password': '重置密码',
@@ -167,6 +172,7 @@ const publicRoutes = new Set([
   'reset-password',
   'terms',
   'privacy',
+  'not-found',
 ])
 router.beforeEach((to) => {
   if (!hasSession() && !publicRoutes.has(String(to.name))) {

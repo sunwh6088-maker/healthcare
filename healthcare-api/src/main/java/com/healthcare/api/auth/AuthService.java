@@ -69,7 +69,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthDtos.IssuedLogin login(String phone, String code) {
+    public AuthDtos.IssuedLogin login(String phone, String code, String userAgent, String ip) {
         String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
         if (!codes.verify(normalized, code, VerificationCodeService.PURPOSE_LOGIN)) {
@@ -87,12 +87,13 @@ public class AuthService {
         }
         ensureState(user);
 
-        String token = tokens.issue(user.getId());
+        String token = tokens.issue(user.getId(), userAgent, ip);
         return new AuthDtos.IssuedLogin(token, UserDto.from(user), newUser);
     }
 
     @Transactional
-    public AuthDtos.IssuedLogin loginWithPassword(String phone, String password) {
+    public AuthDtos.IssuedLogin loginWithPassword(
+            String phone, String password, String userAgent, String ip) {
         String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
         User user = users.findByPhone(normalized)
@@ -103,12 +104,13 @@ public class AuthService {
             throw new ApiException(400, "手机号或密码错误");
         }
         ensureState(user);
-        String token = tokens.issue(user.getId());
+        String token = tokens.issue(user.getId(), userAgent, ip);
         return new AuthDtos.IssuedLogin(token, UserDto.from(user), false);
     }
 
     @Transactional
-    public AuthDtos.IssuedLogin resetPassword(String phone, String code, String newPassword) {
+    public AuthDtos.IssuedLogin resetPassword(
+            String phone, String code, String newPassword, String userAgent, String ip) {
         String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
         if (!codes.verify(normalized, code, VerificationCodeService.PURPOSE_LOGIN)) {
@@ -121,8 +123,23 @@ public class AuthService {
         // 重置密码后让所有旧会话失效，再签发新 token
         tokens.revokeAll(user.getId());
         ensureState(user);
-        String token = tokens.issue(user.getId());
+        String token = tokens.issue(user.getId(), userAgent, ip);
         return new AuthDtos.IssuedLogin(token, UserDto.from(user), false);
+    }
+
+    /** 登录设备列表。 */
+    public List<AuthDtos.SessionDto> sessions(Long userId, String currentRawToken) {
+        return tokens.sessions(userId, currentRawToken);
+    }
+
+    @Transactional
+    public void revokeSession(Long userId, Long sessionId) {
+        tokens.revokeSession(userId, sessionId);
+    }
+
+    @Transactional
+    public void revokeOtherSessions(Long userId, String currentRawToken) {
+        tokens.revokeOthers(userId, currentRawToken);
     }
 
     @Transactional

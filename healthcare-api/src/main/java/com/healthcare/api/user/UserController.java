@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -27,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,6 +74,32 @@ public class UserController {
             @Valid @RequestBody AuthDtos.ChangePasswordRequest request,
             HttpServletRequest httpRequest) {
         authService.changePassword(userId, request, currentToken(httpRequest));
+        return ApiResponse.ok();
+    }
+
+    /** 当前账号的登录设备列表（不暴露 token）。 */
+    @GetMapping("/sessions")
+    public ApiResponse<List<AuthDtos.SessionDto>> sessions(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
+            HttpServletRequest httpRequest) {
+        return ApiResponse.ok(authService.sessions(userId, currentToken(httpRequest)));
+    }
+
+    /** 退出指定设备。 */
+    @DeleteMapping("/sessions/{id}")
+    public ApiResponse<Void> revokeSession(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
+            @PathVariable Long id) {
+        authService.revokeSession(userId, id);
+        return ApiResponse.ok();
+    }
+
+    /** 退出除当前设备外的所有登录会话。 */
+    @DeleteMapping("/sessions")
+    public ApiResponse<Void> revokeOtherSessions(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
+            HttpServletRequest httpRequest) {
+        authService.revokeOtherSessions(userId, currentToken(httpRequest));
         return ApiResponse.ok();
     }
 
