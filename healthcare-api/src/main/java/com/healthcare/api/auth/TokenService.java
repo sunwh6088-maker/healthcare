@@ -1,6 +1,7 @@
 package com.healthcare.api.auth;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +58,32 @@ public class TokenService {
         if (rawToken != null && !rawToken.isBlank()) {
             tokens.deleteByTokenHash(hash(rawToken));
         }
+    }
+
+    /** 撤销该用户除当前 token 外的其他登录会话（修改密码后使用）。 */
+    @Transactional
+    public void revokeOthers(Long userId, String currentRawToken) {
+        if (userId == null) {
+            return;
+        }
+        if (currentRawToken == null || currentRawToken.isBlank()) {
+            tokens.deleteByUserId(userId);
+            return;
+        }
+        tokens.deleteByUserIdAndTokenHashNot(userId, hash(currentRawToken));
+    }
+
+    /** 撤销该用户全部登录会话（重置密码后使用）。 */
+    @Transactional
+    public void revokeAll(Long userId) {
+        tokens.deleteByUserId(userId);
+    }
+
+    /** 每天清理过期 token，避免表无限增长。 */
+    @Scheduled(cron = "0 30 3 * * *")
+    @Transactional
+    public void deleteExpiredTokens() {
+        tokens.deleteByExpiresAtBefore(Instant.now());
     }
 
     private String hash(String rawToken) {

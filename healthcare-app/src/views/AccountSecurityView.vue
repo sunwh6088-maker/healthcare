@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 模块：账户与安全 —— 手机号/邮箱、密码、设备与注销入口。
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { toast } from '../utils/toast'
@@ -60,6 +60,33 @@ const editField = ref<EditField | null>(null)
 const editValue = ref('')
 const saving = ref(false)
 
+// 修改手机号分两步：输入新号码 → 验证新号码收到的短信验证码
+const phoneStep = ref<'input' | 'verify'>('input')
+const phoneCode = ref('')
+const phoneDevCode = ref('')
+const phoneSending = ref(false)
+const cooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+function startCooldown(seconds = 60) {
+  clearCooldown()
+  cooldown.value = seconds
+  cooldownTimer = setInterval(() => {
+    cooldown.value -= 1
+    if (cooldown.value <= 0) clearCooldown()
+  }, 1000)
+}
+
+function clearCooldown() {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
+  cooldown.value = 0
+}
+
+onUnmounted(clearCooldown)
+
 const sheetTitle = computed(() =>
   editField.value === 'name' ? '修改昵称' : editField.value === 'phone' ? '修改手机号' : '修改邮箱',
 )
@@ -86,21 +113,75 @@ function onEditInput() {
 function openEdit(field: EditField) {
   editField.value = field
   editValue.value =
-    field === 'name'
-      ? health.userName
-      : field === 'phone'
-        ? formatPhone(health.accountPhone)
-        : health.accountEmail
+    field === 'name' ? health.userName : field === 'phone' ? '' : health.accountEmail
+  phoneStep.value = 'input'
+  phoneCode.value = ''
+  phoneDevCode.value = ''
 }
 
 function closeEdit() {
   editField.value = null
+  phoneStep.value = 'input'
+  phoneCode.value = ''
+  phoneDevCode.value = ''
+  clearCooldown()
+}
+
+function backToPhoneInput() {
+  phoneStep.value = 'input'
+  phoneCode.value = ''
+  phoneDevCode.value = ''
+}
+
+/** 第 1 步：校验新号码并请求验证码。 */
+async function sendPhoneCode() {
+  const value = normalizePhone(editValue.value)
+  if (!isValidPhone(value)) {
+    toast('请输入正确的 11 位中国大陆手机号')
+    return
+  }
+  if (value === normalizePhone(health.accountPhone)) {
+    toast('新手机号与当前手机号相同')
+    return
+  }
+  phoneSending.value = true
+  try {
+    const result = await api.sendPhoneChangeCode(value)
+    phoneStep.value = 'verify'
+    phoneCode.value = result.devCode ?? ''
+    phoneDevCode.value = result.devCode ?? ''
+    toast('验证码已发送')
+    startCooldown()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '验证码发送失败')
+  } finally {
+    phoneSending.value = false
+  }
+}
+
+/** 第 2 步：提交新号码和验证码。 */
+async function confirmPhoneChange() {
+  const value = normalizePhone(editValue.value)
+  if (!/^\d{6}$/.test(phoneCode.value.trim())) {
+    toast('请输入 6 位验证码')
+    return
+  }
+  saving.value = true
+  try {
+    const user = await api.updatePhone(value, phoneCode.value.trim())
+    health.accountPhone = user.phone
+    toast('手机号已更新')
+    closeEdit()
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '手机号更新失败')
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveEdit() {
-  if (!editField.value) return
-  const value =
-    editField.value === 'phone' ? normalizePhone(editValue.value) : editValue.value.trim()
+  if (editField.value !== 'name' && editField.value !== 'email') return
+  const value = editValue.value.trim()
   if (editField.value === 'name') {
     if (!value) {
       toast('昵称不能为空')
@@ -111,10 +192,6 @@ async function saveEdit() {
       return
     }
   }
-  if (editField.value === 'phone' && !isValidPhone(value)) {
-    toast('请输入正确的 11 位中国大陆手机号')
-    return
-  }
   if (editField.value === 'email' && !isValidEmail(value)) {
     toast('请输入有效的邮箱地址')
     return
@@ -122,23 +199,10 @@ async function saveEdit() {
 
   saving.value = true
   try {
-    const payload =
-      editField.value === 'name'
-        ? { name: value }
-        : editField.value === 'phone'
-          ? { phone: value }
-          : { email: value }
-    const user = await api.updateMe(payload)
+    const user = await api.updateMe(editField.value === 'name' ? { name: value } : { email: value })
     health.userName = user.name
-    health.accountPhone = user.phone
-    health.accountEmail = user.email
-    toast(
-      editField.value === 'name'
-        ? '昵称已更新'
-        : editField.value === 'phone'
-          ? '手机号已更新'
-          : '邮箱已更新',
-    )
+    health.accountEmail = user.email ?? ''
+    toast(editField.value === 'name' ? '昵称已更新' : '邮箱已更新')
     closeEdit()
   } catch (error) {
     toast(error instanceof Error ? error.message : '更新失败')
@@ -175,7 +239,10 @@ async function deleteAccount() {
 
     <!-- 账号概览 -->
     <div class="hero card">
-      <div class="avatar">🧑</div>
+      <div class="avatar">
+        <img v-if="health.avatarUrl" :src="health.avatarUrl" alt="头像" />
+        <span v-else>🧑</span>
+      </div>
       <div class="hero-info">
         <h2>{{ health.userName }}</h2>
         <p class="num">{{ maskedPhone }}</p>
@@ -231,30 +298,79 @@ async function deleteAccount() {
 
     <!-- 修改手机号 / 邮箱 -->
     <BottomSheet :open="editField !== null" @close="closeEdit">
-      <h3 class="sheet-title">{{ sheetTitle }}</h3>
+      <h3 class="sheet-title">
+        {{ editField === 'phone' && phoneStep === 'verify' ? '验证新手机号' : sheetTitle }}
+      </h3>
 
-      <label class="sheet-field">
-        <span class="sheet-key">{{ sheetKey }}</span>
-        <input
-          v-model="editValue"
-          class="sheet-input"
-          :type="sheetType"
-          :maxlength="editField === 'phone' ? 20 : undefined"
-          :placeholder="sheetPlaceholder"
-          @input="onEditInput"
-        />
-      </label>
+      <!-- 修改手机号第 2 步：验证新号码 -->
+      <template v-if="editField === 'phone' && phoneStep === 'verify'">
+        <p class="code-tip">
+          验证码已发送至 <span class="num">{{ formatPhone(editValue) }}</span>，5 分钟内有效。
+        </p>
+        <label class="sheet-field">
+          <span class="sheet-key">验证码</span>
+          <input
+            v-model="phoneCode"
+            class="sheet-input num"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="请输入 6 位验证码"
+          />
+        </label>
+        <p v-if="phoneDevCode" class="dev-tip">开发模式验证码：{{ phoneDevCode }}</p>
+        <div class="sheet-actions">
+          <button
+            class="sheet-delete"
+            :disabled="cooldown > 0 || phoneSending"
+            @click="sendPhoneCode"
+          >
+            {{ cooldown > 0 ? `${cooldown}s 后重新发送` : '重新发送' }}
+          </button>
+          <button
+            class="btn-primary"
+            :class="{ disabled: saving }"
+            :disabled="saving"
+            @click="confirmPhoneChange"
+          >
+            {{ saving ? '提交中...' : '确认修改' }}
+          </button>
+        </div>
+        <button class="back-edit" @click="backToPhoneInput">返回修改号码</button>
+      </template>
 
-      <div class="sheet-actions">
-        <button
-          class="btn-primary"
-          :class="{ disabled: saving }"
-          :disabled="saving"
-          @click="saveEdit"
-        >
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
-      </div>
+      <!-- 第 1 步：昵称 / 邮箱直接保存，手机号先发验证码 -->
+      <template v-else>
+        <label class="sheet-field">
+          <span class="sheet-key">{{ sheetKey }}</span>
+          <input
+            v-model="editValue"
+            class="sheet-input"
+            :type="sheetType"
+            :maxlength="editField === 'phone' ? 20 : undefined"
+            :placeholder="sheetPlaceholder"
+            @input="onEditInput"
+          />
+        </label>
+
+        <div class="sheet-actions">
+          <button
+            class="btn-primary"
+            :class="{ disabled: saving || phoneSending }"
+            :disabled="saving || phoneSending"
+            @click="editField === 'phone' ? sendPhoneCode() : saveEdit()"
+          >
+            {{
+              editField === 'phone'
+                ? phoneSending
+                  ? '发送中...'
+                  : '发送验证码'
+                : saving
+                  ? '保存中...'
+                  : '保存'
+            }}
+          </button>
+        </div>
+      </template>
     </BottomSheet>
 
     <!-- 注销账户确认 -->
@@ -303,6 +419,13 @@ async function deleteAccount() {
   justify-content: center;
   font-size: 28px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hero-info h2 {
@@ -409,5 +532,26 @@ async function deleteAccount() {
   text-align: center;
   font-size: var(--fs-caption);
   color: var(--neutral-2);
+}
+
+.code-tip {
+  font-size: var(--fs-body2);
+  line-height: 1.6;
+  color: var(--neutral-2);
+  text-align: center;
+}
+
+.dev-tip {
+  font-size: var(--fs-caption);
+  color: var(--primary);
+  text-align: center;
+}
+
+.back-edit {
+  width: 100%;
+  padding: 8px;
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+  text-align: center;
 }
 </style>

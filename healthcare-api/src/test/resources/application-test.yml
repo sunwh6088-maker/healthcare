@@ -12,6 +12,7 @@ spring:
 
 app:
   dev-mode: true
+  upload-dir: target/test-uploads
   cors:
     allowed-origins: http://localhost:5173
   auth:
@@ -20,5 +21,8 @@ app:
     send-code-cooldown-seconds: 0
     send-code-max-per-hour: 1000
     login-max-attempts-per-10-min: 1000
+    phone-change-max-per-hour: 1000
+    login-ip-max-per-10-min: 1000
+    send-code-ip-max-per-hour: 1000
   sms:
     webhook-url: ""

@@ -70,6 +70,19 @@ const router = createRouter({
     },
     { path: '/help', name: 'help', component: () => import('../views/HelpView.vue') },
     { path: '/about', name: 'about', component: () => import('../views/AboutView.vue') },
+    // 法律文本（未登录也可访问）
+    {
+      path: '/terms',
+      name: 'terms',
+      component: () => import('../views/LegalView.vue'),
+      props: { doc: 'terms' },
+    },
+    {
+      path: '/privacy',
+      name: 'privacy',
+      component: () => import('../views/LegalView.vue'),
+      props: { doc: 'privacy' },
+    },
     // 账户流程
     {
       path: '/forgot-password',
@@ -132,6 +145,8 @@ const pageTitles: Record<string, string> = {
   'account-security': '账户与安全',
   help: '帮助与反馈',
   about: '关于我们',
+  terms: '用户协议',
+  privacy: '隐私政策',
   'forgot-password': '忘记密码',
   'change-password': '更改密码',
   'reset-password': '重置密码',
@@ -139,7 +154,7 @@ const pageTitles: Record<string, string> = {
 
 router.afterEach((to) => {
   const title = pageTitles[String(to.name)]
-  document.title = title ? `${title} · 健康追踪` : '健康追踪 · 健康管理 APP 原型'
+  document.title = title ? `${title} · 健康追踪` : '健康追踪'
 })
 
 // 未登录时只允许访问启动/引导/登录/验证码页
@@ -150,6 +165,8 @@ const publicRoutes = new Set([
   'verify',
   'forgot-password',
   'reset-password',
+  'terms',
+  'privacy',
 ])
 router.beforeEach((to) => {
   if (!hasSession() && !publicRoutes.has(String(to.name))) {

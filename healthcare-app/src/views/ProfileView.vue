@@ -1,11 +1,46 @@
 <script setup lang="ts">
 // 模块：我的页 —— 个人资料和功能入口。
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'
+import { api } from '../api'
+import { toast } from '../utils/toast'
 
 const router = useRouter()
 const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
+
+// 头像上传：点击头像选择本地图片，前端先做类型/大小校验
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+
+function pickAvatar() {
+  fileInput.value?.click()
+}
+
+async function onAvatarChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    toast('仅支持 JPG、PNG 或 WebP 图片')
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toast('头像不能超过 2MB')
+    return
+  }
+  uploading.value = true
+  try {
+    const user = await api.uploadAvatar(file)
+    health.avatarUrl = user.avatarUrl
+    toast('头像已更新 ✓')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '头像上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
 </script>
 
 <template>
@@ -14,7 +49,23 @@ const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
 
     <!-- 头像与昵称 -->
     <div class="head">
-      <div class="avatar">🧑</div>
+      <button
+        type="button"
+        class="avatar"
+        :aria-label="uploading ? '正在上传头像' : '更换头像'"
+        @click="pickAvatar"
+      >
+        <img v-if="health.avatarUrl" :src="health.avatarUrl" alt="头像" />
+        <span v-else>🧑</span>
+        <span class="avatar-edit">{{ uploading ? '…' : '✎' }}</span>
+      </button>
+      <input
+        ref="fileInput"
+        class="file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        @change="onAvatarChange"
+      />
       <h1 class="name">{{ health.userName }}</h1>
       <p class="bio">保持健康，保持活力，遇见更好的自己。</p>
     </div>
@@ -95,6 +146,7 @@ const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
 }
 
 .avatar {
+  position: relative;
   width: 96px;
   height: 96px;
   border-radius: 50%;
@@ -105,6 +157,34 @@ const sleepHours = computed(() => Math.floor(health.sleepMinutes / 60))
   align-items: center;
   justify-content: center;
   font-size: 48px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-edit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--white);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--white);
+}
+
+.file-input {
+  display: none;
 }
 
 .name {

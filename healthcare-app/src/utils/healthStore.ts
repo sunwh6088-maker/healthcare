@@ -16,6 +16,7 @@ export interface Alarm {
 
 export interface HealthState {
   userName: string
+  avatarUrl: string | null
   gender: 'female' | 'male' | null
   age: number
   heightCm: number
@@ -46,7 +47,8 @@ const STORAGE_KEY = 'healthcare-app-state'
 
 // ===== 默认值 =====
 const defaults: HealthState = {
-  userName: '杰西·比伯',
+  userName: '健康用户',
+  avatarUrl: null,
   gender: null,
   age: 22,
   heightCm: 160,
@@ -65,8 +67,8 @@ const defaults: HealthState = {
     { id: 1, time: '08:30', label: '工作日', repeat: [1, 2, 3, 4, 5], on: true },
     { id: 2, time: '09:00', label: '周末', repeat: [0, 6], on: false },
   ],
-  accountPhone: '138 0013 8000',
-  accountEmail: 'jessie@example.com',
+  accountPhone: '',
+  accountEmail: '',
   notifyEnabled: true,
   privacyEnabled: true,
   deviceConnected: true,
@@ -203,6 +205,7 @@ export async function syncFromServer(): Promise<User | null> {
   const [user, state] = await Promise.all([api.me(), api.getState()])
   applyingRemote = true
   health.userName = user.name
+  health.avatarUrl = user.avatarUrl ?? null
   health.accountPhone = user.phone
   health.accountEmail = user.email ?? ''
   applyServerState(state)

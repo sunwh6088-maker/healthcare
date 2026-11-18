@@ -4,11 +4,11 @@
 
 ## 目录
 
-| 目录             | 说明                                                                     |
-| ---------------- | ------------------------------------------------------------------------ |
-| `healthcare-app` | Vue 3 + TypeScript + Vite 前端，27 个页面，覆盖设计稿全部画板            |
-| `healthcare-api` | Spring Boot 3.5 + MySQL 8 后端，提供认证、账号、健康数据、食物和运动接口 |
-| `ui-tools`       | 设计稿解析与 Puppeteer 冒烟检查脚本（生成物不入库）                      |
+| 目录             | 说明                                                                           |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `healthcare-app` | Vue 3 + TypeScript + Vite 前端，30+ 页面，覆盖设计稿全部画板，支持 PWA 安装    |
+| `healthcare-api` | Spring Boot 3.5 + MySQL 8 后端，提供认证、账号、头像、健康数据、食物和运动接口 |
+| `ui-tools`       | 设计稿解析、图标生成与 Puppeteer 冒烟检查脚本（生成物不入库）                  |
 
 ## 快速开始
 
@@ -18,9 +18,9 @@
 # 1) 初始化数据库（首次，需 MySQL root 密码）
 mysql -u root -p < healthcare-api/db/init.sql
 
-# 2) 启动后端（默认 http://localhost:8080；被占用时可加 --server.port=8081）
+# 2) 启动后端（前端代理默认指向 8081；8080 空闲时也可改回 8080）
 cd healthcare-api
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8081
 
 # 3) 启动前端（http://localhost:5173）
 cd ../healthcare-app
@@ -38,6 +38,35 @@ docker compose up --build
 ```
 
 默认访问 `http://localhost:8088`。生产环境请在 `.env` 中设置 `APP_DEV_MODE=false`、`AUTH_COOKIE_SECURE=true`，并配置 `SMS_WEBHOOK_URL` 与 `CORS_ALLOWED_ORIGINS`。
+
+## 上线检查清单
+
+在生产环境部署前，至少确认以下事项：
+
+1. **关闭开发模式**：`.env` 中设置 `APP_DEV_MODE=false`，并配置真实短信网关
+   `SMS_WEBHOOK_URL` / `SMS_WEBHOOK_TOKEN`（Webhook 接收 `{"phone","code","scene"}`）。
+2. **修改默认密码**：设置强随机 `MYSQL_ROOT_PASSWORD`、`DB_PASSWORD`。
+3. **启用 HTTPS**：在宿主机或反向代理层配置证书，并设置
+   `AUTH_COOKIE_SECURE=true`。应用容器只监听内网 8080，`X-Forwarded-*` 由 Nginx 透传。
+4. **收紧跨域**：`CORS_ALLOWED_ORIGINS` 填写真实站点地址（逗号分隔）。
+   同源部署会自动放行，跨域接口调用必须显式列出。
+5. **数据持久化**：`mysql-data` 与 `uploads-data` 两个 Docker 卷分别保存数据库和头像；
+   不要执行 `docker compose down -v`，否则会删除卷。
+6. **备份**：`healthcare-api/scripts/backup.sh` 生成 gzip 备份并保留 14 天，
+   建议加入 crontab；`restore.sh` 可用于恢复。
+7. **健康检查**：容器探活使用 `GET /actuator/health`（仅健康信息，不暴露细节）；
+   Nginx 层未对外开放该路径。
+8. **单实例限制**：验证码和限流目前保存在进程内，多实例部署需要引入 Redis 等共享存储，
+   并保持会话粘滞。
+
+推荐的 HTTPS 反向代理（Caddy，自动申请证书）：
+
+```caddyfile
+health.example.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8088
+}
+```
 
 ## 质量检查
 
@@ -61,5 +90,10 @@ CI 位于 `.github/workflows/`：`frontend-ci.yml` 和 `backend-ci.yml` 按改�
 - 数据库结构由 Flyway 管理（`healthcare-api/src/main/resources/db/migration`），JPA 以 `validate` 模式启动。
 - 食物、运动类型、课程、助眠声音、设备、饮水份量和餐次等基础数据全部存放在数据库，前端通过 `GET /api/catalog` 一次加载，不再使用本地 mock 文件。
 - 登录 token 使用 HttpOnly Cookie，前端只在 localStorage 记录一个非敏感的已登录标记。
+- 账号安全：登录 token 只存在于 HttpOnly Cookie；密码 8-64 位且含字母和数字；修改手机号需新号码短信验证；
+  写接口校验 Origin/Referer 防 CSRF；登录、验证码和改绑手机号均有频率限制。
+- 合规能力：登录页需同意《用户协议》《隐私政策》；设置页可导出全部个人数据（JSON）；
+  账号注销会级联删除健康数据、记录和头像文件。
+- 头像保存在 `APP_UPLOAD_DIR`（Docker 中为 `/app/data/uploads`），仅接受 JPG/PNG/WebP，最大 2MB。
 - 生产部署前需关闭 `APP_DEV_MODE`、配置 `SMS_WEBHOOK_URL`、收紧 `CORS_ALLOWED_ORIGINS`，启用 HTTPS 并设置 `AUTH_COOKIE_SECURE=true`。
-- 项目当前处于“高保真原型 + 最小可用后端”阶段，账户注销已支持；真实设备同步、系统通知推送和修改手机号的短信二次验证尚未实现。
+- 项目当前处于“可上线 Web 应用”阶段；真实设备同步、系统通知推送和修改手机号前的原号码二次确认尚未实现。

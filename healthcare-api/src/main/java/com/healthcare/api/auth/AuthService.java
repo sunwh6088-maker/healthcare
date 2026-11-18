@@ -1,6 +1,7 @@
 package com.healthcare.api.auth;
 
 import com.healthcare.api.common.ApiException;
+import com.healthcare.api.common.PhoneNumbers;
 import com.healthcare.api.sms.SmsSender;
 import com.healthcare.api.state.AlarmEntity;
 import com.healthcare.api.state.AlarmRepository;
@@ -56,24 +57,22 @@ public class AuthService {
     }
 
     public String sendCode(String phone) {
-        String normalized = normalize(phone);
-        validatePhone(normalized);
+        String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkSendCode(normalized);
-        String code = codes.issue(normalized);
+        String code = codes.issue(normalized, VerificationCodeService.PURPOSE_LOGIN);
         if (devMode) {
             log.info("Dev verification code for {}: {}", normalized, code);
         } else {
-            smsSender.sendVerificationCode(normalized, code);
+            smsSender.sendVerificationCode(normalized, code, VerificationCodeService.PURPOSE_LOGIN);
         }
         return code;
     }
 
     @Transactional
-    public AuthDtos.LoginResponse login(String phone, String code) {
-        String normalized = normalize(phone);
-        validatePhone(normalized);
+    public AuthDtos.IssuedLogin login(String phone, String code) {
+        String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
-        if (!codes.verify(normalized, code)) {
+        if (!codes.verify(normalized, code, VerificationCodeService.PURPOSE_LOGIN)) {
             throw new ApiException(400, "验证码错误或已过期");
         }
 
@@ -82,21 +81,19 @@ public class AuthService {
         if (user == null) {
             user = new User();
             user.setPhone(normalized);
-            user.setName("杰西·比伯");
-            user.setEmail("jessie@example.com");
+            user.setName(defaultName(normalized));
             user = users.save(user);
             newUser = true;
         }
         ensureState(user);
 
         String token = tokens.issue(user.getId());
-        return new AuthDtos.LoginResponse(token, UserDto.from(user), newUser);
+        return new AuthDtos.IssuedLogin(token, UserDto.from(user), newUser);
     }
 
     @Transactional
-    public AuthDtos.LoginResponse loginWithPassword(String phone, String password) {
-        String normalized = normalize(phone);
-        validatePhone(normalized);
+    public AuthDtos.IssuedLogin loginWithPassword(String phone, String password) {
+        String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
         User user = users.findByPhone(normalized)
                 .orElseThrow(() -> new ApiException(400, "手机号或密码错误"));
@@ -107,28 +104,30 @@ public class AuthService {
         }
         ensureState(user);
         String token = tokens.issue(user.getId());
-        return new AuthDtos.LoginResponse(token, UserDto.from(user), false);
+        return new AuthDtos.IssuedLogin(token, UserDto.from(user), false);
     }
 
     @Transactional
-    public AuthDtos.LoginResponse resetPassword(String phone, String code, String newPassword) {
-        String normalized = normalize(phone);
-        validatePhone(normalized);
+    public AuthDtos.IssuedLogin resetPassword(String phone, String code, String newPassword) {
+        String normalized = PhoneNumbers.normalizeAndValidate(phone);
         rateLimits.checkLogin(normalized);
-        if (!codes.verify(normalized, code)) {
+        if (!codes.verify(normalized, code, VerificationCodeService.PURPOSE_LOGIN)) {
             throw new ApiException(400, "验证码错误或已过期");
         }
         User user = users.findByPhone(normalized)
                 .orElseThrow(() -> new ApiException(404, "用户不存在，请先登录"));
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         users.save(user);
+        // 重置密码后让所有旧会话失效，再签发新 token
+        tokens.revokeAll(user.getId());
         ensureState(user);
         String token = tokens.issue(user.getId());
-        return new AuthDtos.LoginResponse(token, UserDto.from(user), false);
+        return new AuthDtos.IssuedLogin(token, UserDto.from(user), false);
     }
 
     @Transactional
-    public void changePassword(Long userId, AuthDtos.ChangePasswordRequest request) {
+    public void changePassword(Long userId, AuthDtos.ChangePasswordRequest request,
+                               String currentRawToken) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(404, "用户不存在"));
         if (user.getPasswordHash() != null && !user.getPasswordHash().isBlank()) {
             if (request.oldPassword() == null
@@ -139,6 +138,8 @@ public class AuthService {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         users.save(user);
+        // 修改密码后保留当前会话，其他设备上的登录全部失效
+        tokens.revokeOthers(userId, currentRawToken);
     }
 
     public void logout(String rawToken) {
@@ -168,23 +169,8 @@ public class AuthService {
         return entity;
     }
 
-    private String normalize(String phone) {
-        if (phone == null) {
-            throw new ApiException(400, "手机号不能为空");
-        }
-        String normalized = phone.replaceAll("[\\s-]", "");
-        if (normalized.startsWith("+86")) {
-            normalized = normalized.substring(3);
-        } else if (normalized.matches("86\\d{11}")) {
-            normalized = normalized.substring(2);
-        }
-        return normalized;
-    }
-
-    /** 仅接受中国大陆手机号：11 位、1 开头、第二位 3-9。 */
-    private void validatePhone(String phone) {
-        if (!phone.matches("1[3-9]\\d{9}")) {
-            throw new ApiException(400, "请输入正确的 11 位中国大陆手机号");
-        }
+    /** 新用户默认昵称：用户 + 手机号后四位。 */
+    private String defaultName(String phone) {
+        return "用户" + phone.substring(phone.length() - 4);
     }
 }

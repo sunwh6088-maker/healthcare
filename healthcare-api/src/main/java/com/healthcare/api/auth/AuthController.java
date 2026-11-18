@@ -24,19 +24,24 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthCookieService authCookies;
+    private final RateLimitService rateLimits;
     private final boolean devMode;
 
     public AuthController(AuthService authService,
                           AuthCookieService authCookies,
+                          RateLimitService rateLimits,
                           @Value("${app.dev-mode:true}") boolean devMode) {
         this.authService = authService;
         this.authCookies = authCookies;
+        this.rateLimits = rateLimits;
         this.devMode = devMode;
     }
 
     @PostMapping("/send-code")
     public ApiResponse<Map<String, Object>> sendCode(
-            @Valid @RequestBody AuthDtos.SendCodeRequest request) {
+            @Valid @RequestBody AuthDtos.SendCodeRequest request,
+            HttpServletRequest httpRequest) {
+        rateLimits.checkSendCodeIp(clientIp(httpRequest));
         String code = authService.sendCode(request.phone());
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("message", "验证码已发送");
@@ -49,30 +54,36 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthDtos.LoginResponse> login(
             @Valid @RequestBody AuthDtos.LoginRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
-        AuthDtos.LoginResponse result = authService.login(request.phone(), request.code());
+        rateLimits.checkLoginIp(clientIp(httpRequest));
+        AuthDtos.IssuedLogin result = authService.login(request.phone(), request.code());
         authCookies.writeToken(response, result.token());
-        return ApiResponse.ok(result);
+        return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
 
     @PostMapping("/login-password")
     public ApiResponse<AuthDtos.LoginResponse> loginWithPassword(
             @Valid @RequestBody AuthDtos.LoginPasswordRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
-        AuthDtos.LoginResponse result =
+        rateLimits.checkLoginIp(clientIp(httpRequest));
+        AuthDtos.IssuedLogin result =
                 authService.loginWithPassword(request.phone(), request.password());
         authCookies.writeToken(response, result.token());
-        return ApiResponse.ok(result);
+        return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
 
     @PostMapping("/reset-password")
     public ApiResponse<AuthDtos.LoginResponse> resetPassword(
             @Valid @RequestBody AuthDtos.ResetPasswordRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
-        AuthDtos.LoginResponse result =
+        rateLimits.checkLoginIp(clientIp(httpRequest));
+        AuthDtos.IssuedLogin result =
                 authService.resetPassword(request.phone(), request.code(), request.newPassword());
         authCookies.writeToken(response, result.token());
-        return ApiResponse.ok(result);
+        return ApiResponse.ok(new AuthDtos.LoginResponse(result.user(), result.newUser()));
     }
 
     @PostMapping("/logout")
@@ -90,5 +101,14 @@ public class AuthController {
         }
         authCookies.clearToken(response);
         return ApiResponse.ok();
+    }
+
+    /** 反向代理后取 X-Forwarded-For 的第一个地址；直连时使用 remoteAddr。 */
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

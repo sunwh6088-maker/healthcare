@@ -9,9 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 验证码服务：6 位验证码、5 分钟有效、最多 5 次尝试。
+ * 验证码按「用途 + 手机号」隔离，登录验证码不能用于修改手机号等其他场景。
  */
 @Service
 public class VerificationCodeService {
+
+    public static final String PURPOSE_LOGIN = "login";
+    public static final String PURPOSE_CHANGE_PHONE = "change-phone";
 
     private static final int TTL_SECONDS = 300;
     private static final int MAX_ATTEMPTS = 5;
@@ -31,17 +35,25 @@ public class VerificationCodeService {
     }
 
     public String issue(String phone) {
+        return issue(phone, PURPOSE_LOGIN);
+    }
+
+    public String issue(String phone, String purpose) {
         String code = String.format("%06d", random.nextInt(1_000_000));
-        codes.put(phone, new Entry(code, Instant.now().plusSeconds(TTL_SECONDS)));
+        codes.put(key(phone, purpose), new Entry(code, Instant.now().plusSeconds(TTL_SECONDS)));
         return code;
     }
 
     public boolean verify(String phone, String code) {
+        return verify(phone, code, PURPOSE_LOGIN);
+    }
+
+    public boolean verify(String phone, String code, String purpose) {
         if (phone == null || code == null) {
             return false;
         }
         boolean[] matched = {false};
-        codes.computeIfPresent(phone, (key, entry) -> {
+        codes.computeIfPresent(key(phone, purpose), (key, entry) -> {
             if (entry.expiresAt.isBefore(Instant.now())) {
                 return null;
             }
@@ -53,5 +65,9 @@ public class VerificationCodeService {
             return entry.failedAttempts >= MAX_ATTEMPTS ? null : entry;
         });
         return matched[0];
+    }
+
+    private String key(String phone, String purpose) {
+        return purpose + ":" + phone;
     }
 }

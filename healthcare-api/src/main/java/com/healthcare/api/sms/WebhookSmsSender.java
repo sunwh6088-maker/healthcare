@@ -37,7 +37,7 @@ public class WebhookSmsSender implements SmsSender {
     }
 
     @Override
-    public void sendVerificationCode(String phone, String code) {
+    public void sendVerificationCode(String phone, String code, String scene) {
         if (webhookUrl.isBlank()) {
             log.error("SMS webhook is not configured; cannot send verification code");
             throw new ApiException(503, "短信服务未配置，请联系管理员");
@@ -46,7 +46,7 @@ public class WebhookSmsSender implements SmsSender {
             var request = restClient.post()
                     .uri(webhookUrl)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("phone", phone, "code", code, "scene", "login"));
+                    .body(Map.of("phone", phone, "code", code, "scene", scene));
             if (!webhookToken.isBlank()) {
                 request = request.header(HttpHeaders.AUTHORIZATION, "Bearer " + webhookToken);
             }

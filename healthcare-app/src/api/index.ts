@@ -8,6 +8,7 @@ export interface User {
   phone: string
   email: string
   hasPassword: boolean
+  avatarUrl: string | null
 }
 
 export interface HealthDto {
@@ -47,9 +48,14 @@ export interface StateDto {
 }
 
 export interface LoginResponse {
-  token: string
+  // token 由后端写入 HttpOnly Cookie，前端不接触
   user: User
   newUser: boolean
+}
+
+export interface PhoneCodeResponse {
+  message: string
+  devCode?: string
 }
 
 export interface SendCodeResponse {
@@ -202,15 +208,45 @@ export const api = {
     return request<User>('/me')
   },
 
-  updateMe(data: { name?: string; phone?: string; email?: string }) {
+  updateMe(data: { name?: string; email?: string }) {
     return request<User>('/me', {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   },
 
+  // 修改手机号：必须通过新号码的短信验证码
+  sendPhoneChangeCode(phone: string) {
+    return request<PhoneCodeResponse>('/me/phone/send-code', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    })
+  },
+
+  updatePhone(phone: string, code: string) {
+    return request<User>('/me/phone', {
+      method: 'PUT',
+      body: JSON.stringify({ phone, code }),
+    })
+  },
+
+  uploadAvatar(file: File) {
+    const form = new FormData()
+    form.append('file', file)
+    return request<User>('/me/avatar', { method: 'POST', body: form })
+  },
+
+  deleteAvatar() {
+    return request<User>('/me/avatar', { method: 'DELETE' })
+  },
+
   deleteMe() {
     return request<void>('/me', { method: 'DELETE' })
+  },
+
+  /** 导出账号、健康状态、食物与运动记录（JSON）。 */
+  exportMyData() {
+    return request<Record<string, unknown>>('/me/export')
   },
 
   // 基础数据 + 健康状态

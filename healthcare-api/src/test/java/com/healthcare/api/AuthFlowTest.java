@@ -8,10 +8,12 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -47,21 +49,14 @@ class AuthFlowTest {
                 Map.class);
         assertThat(login.getStatusCode().value()).isEqualTo(200);
         Map<?, ?> loginData = (Map<?, ?>) login.getBody().get("data");
-        String token = (String) loginData.get("token");
-        assertThat(token).isNotBlank();
+        // 登录 token 只通过 HttpOnly Cookie 下发，响应体不再包含明文 token
+        assertThat(loginData.containsKey("token")).isFalse();
         assertThat(loginData.get("newUser")).isEqualTo(true);
 
-        // 登录同时下发 HttpOnly Cookie，浏览器端不再保存 token
         String setCookie = login.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
         assertThat(setCookie).contains("healthcare_token=").contains("HttpOnly");
-        HttpHeaders cookieHeaders = new HttpHeaders();
-        cookieHeaders.add(HttpHeaders.COOKIE, setCookie.substring(0, setCookie.indexOf(';')));
-        ResponseEntity<Map> meByCookie = rest.exchange(
-                base + "/api/me", HttpMethod.GET, new HttpEntity<>(cookieHeaders), Map.class);
-        assertThat(meByCookie.getStatusCode().value()).isEqualTo(200);
-
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
+        headers.add(HttpHeaders.COOKIE, setCookie.substring(0, setCookie.indexOf(';')));
         HttpEntity<Void> auth = new HttpEntity<>(headers);
 
         // 基础数据统一由数据库提供
@@ -80,7 +75,7 @@ class AuthFlowTest {
         ResponseEntity<Map> me = rest.exchange(base + "/api/me", HttpMethod.GET, auth, Map.class);
         assertThat(me.getStatusCode().value()).isEqualTo(200);
         Map<?, ?> meData = (Map<?, ?>) me.getBody().get("data");
-        assertThat(meData.get("name")).isEqualTo("杰西·比伯");
+        assertThat(meData.get("name")).isEqualTo("用户1111");
         assertThat(meData.get("phone")).isEqualTo("13900001111");
 
         ResponseEntity<Map> state = rest.exchange(base + "/api/state", HttpMethod.GET, auth, Map.class);
@@ -126,6 +121,18 @@ class AuthFlowTest {
         ResponseEntity<String> unauthorized = rest.getForEntity(base + "/api/state", String.class);
         assertThat(unauthorized.getStatusCode().value()).isEqualTo(401);
 
+        // 弱密码被拒绝
+        for (String weak : List.of("short1", "abcdefgh", "12345678")) {
+            ResponseEntity<Map> weakPassword = rest.exchange(
+                    base + "/api/me/password",
+                    HttpMethod.PUT,
+                    new HttpEntity<>(Map.of("newPassword", weak), headers),
+                    Map.class);
+            assertThat(weakPassword.getStatusCode().value())
+                    .as("weak password %s should be rejected", weak)
+                    .isEqualTo(400);
+        }
+
         // 设置密码（账号此前没有密码，oldPassword 可省略）
         ResponseEntity<Map> changePassword = rest.exchange(
                 base + "/api/me/password",
@@ -140,13 +147,13 @@ class AuthFlowTest {
                 Map.of("phone", "13900001111", "password", "pass1234"),
                 Map.class);
         assertThat(passwordLogin.getStatusCode().value()).isEqualTo(200);
-        Map<?, ?> passwordLoginData = (Map<?, ?>) passwordLogin.getBody().get("data");
-        String passwordToken = (String) passwordLoginData.get("token");
-        assertThat(passwordToken).isNotBlank();
+        String passwordSetCookie = passwordLogin.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertThat(passwordSetCookie).contains("healthcare_token=").contains("HttpOnly");
 
-        // 服务端退出登录，旧 token 失效
+        // 服务端退出登录，该 Cookie 失效
         HttpHeaders passwordHeaders = new HttpHeaders();
-        passwordHeaders.setBearerAuth(passwordToken);
+        passwordHeaders.add(
+                HttpHeaders.COOKIE, passwordSetCookie.substring(0, passwordSetCookie.indexOf(';')));
         ResponseEntity<Map> logout = rest.exchange(
                 base + "/api/auth/logout",
                 HttpMethod.POST,
@@ -160,15 +167,109 @@ class AuthFlowTest {
                 String.class);
         assertThat(afterLogout.getStatusCode().value()).isEqualTo(401);
 
-        // 验证码重置密码
+        // 修改手机号：必须通过新号码的短信验证码
+        String newPhone = "13700002222";
+        ResponseEntity<Map> phoneCodeResp = rest.exchange(
+                base + "/api/me/phone/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("phone", newPhone), headers),
+                Map.class);
+        assertThat(phoneCodeResp.getStatusCode().value()).isEqualTo(200);
+        String phoneCode =
+                (String) ((Map<?, ?>) phoneCodeResp.getBody().get("data")).get("devCode");
+        assertThat(phoneCode).matches("\\d{6}");
+
+        ResponseEntity<Map> wrongPhoneCode = rest.exchange(
+                base + "/api/me/phone",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of("phone", newPhone, "code", "000000"), headers),
+                Map.class);
+        assertThat(wrongPhoneCode.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Map> phoneUpdated = rest.exchange(
+                base + "/api/me/phone",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of("phone", newPhone, "code", phoneCode), headers),
+                Map.class);
+        assertThat(phoneUpdated.getStatusCode().value()).isEqualTo(200);
+        Map<?, ?> phoneUpdatedData = (Map<?, ?>) phoneUpdated.getBody().get("data");
+        assertThat(phoneUpdatedData.get("phone")).isEqualTo(newPhone);
+
+        // 旧的 PATCH 接口不能再绕过验证码修改手机号
+        ResponseEntity<Map> patchPhone = rest.exchange(
+                base + "/api/me",
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("phone", "13600003333"), headers),
+                Map.class);
+        assertThat(patchPhone.getStatusCode().value()).isEqualTo(200);
+        assertThat(((Map<?, ?>) patchPhone.getBody().get("data")).get("phone"))
+                .isEqualTo(newPhone);
+
+        // 头像：上传 PNG、读取、删除（手工构造 multipart 请求体，避免测试客户端缺 boundary）
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+        String boundary = "----healthcareTestBoundary";
+        byte[] prefix = ("--" + boundary
+                + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"avatar.png\""
+                + "\r\nContent-Type: image/png\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+        byte[] suffix = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        byte[] multipart = new byte[prefix.length + png.length + suffix.length];
+        System.arraycopy(prefix, 0, multipart, 0, prefix.length);
+        System.arraycopy(png, 0, multipart, prefix.length, png.length);
+        System.arraycopy(suffix, 0, multipart, prefix.length + png.length, suffix.length);
+
+        HttpHeaders avatarHeaders = new HttpHeaders();
+        avatarHeaders.setContentType(
+                MediaType.parseMediaType("multipart/form-data; boundary=" + boundary));
+        avatarHeaders.add(HttpHeaders.COOKIE, headers.getFirst(HttpHeaders.COOKIE));
+        ResponseEntity<Map> avatarUpload = rest.exchange(
+                base + "/api/me/avatar",
+                HttpMethod.POST,
+                new HttpEntity<>(multipart, avatarHeaders),
+                Map.class);
+        assertThat(avatarUpload.getStatusCode().value()).isEqualTo(200);
+        String avatarUrl =
+                (String) ((Map<?, ?>) avatarUpload.getBody().get("data")).get("avatarUrl");
+        assertThat(avatarUrl).startsWith("/api/me/avatar?v=");
+
+        ResponseEntity<byte[]> avatarBytes = rest.exchange(
+                base + "/api/me/avatar",
+                HttpMethod.GET,
+                new HttpEntity<>(avatarHeaders),
+                byte[].class);
+        assertThat(avatarBytes.getStatusCode().value()).isEqualTo(200);
+        assertThat(avatarBytes.getHeaders().getContentType()).isEqualTo(MediaType.IMAGE_PNG);
+        assertThat(avatarBytes.getBody()).hasSize(png.length);
+
+        ResponseEntity<Map> avatarDelete = rest.exchange(
+                base + "/api/me/avatar",
+                HttpMethod.DELETE,
+                new HttpEntity<>(avatarHeaders),
+                Map.class);
+        assertThat(avatarDelete.getStatusCode().value()).isEqualTo(200);
+        assertThat(((Map<?, ?>) avatarDelete.getBody().get("data")).get("avatarUrl")).isNull();
+
+        ResponseEntity<String> avatarAfterDelete = rest.exchange(
+                base + "/api/me/avatar",
+                HttpMethod.GET,
+                new HttpEntity<>(avatarHeaders),
+                String.class);
+        assertThat(avatarAfterDelete.getStatusCode().value()).isEqualTo(404);
+
+        // 验证码重置密码（使用修改后的手机号）
         ResponseEntity<Map> resetSendCode = rest.postForEntity(
-                base + "/api/auth/send-code", Map.of("phone", "13900001111"), Map.class);
+                base + "/api/auth/send-code", Map.of("phone", newPhone), Map.class);
         String resetCode = (String) ((Map<?, ?>) resetSendCode.getBody().get("data")).get("devCode");
         ResponseEntity<Map> reset = rest.postForEntity(
                 base + "/api/auth/reset-password",
-                Map.of("phone", "13900001111", "code", resetCode, "newPassword", "newpass123"),
+                Map.of("phone", newPhone, "code", resetCode, "newPassword", "newpass123"),
                 Map.class);
         assertThat(reset.getStatusCode().value()).isEqualTo(200);
+        // 重置密码会使旧会话全部失效，改用新下发的 Cookie 继续
+        String resetSetCookie = reset.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        assertThat(resetSetCookie).contains("healthcare_token=");
+        headers.clear();
+        headers.add(
+                HttpHeaders.COOKIE, resetSetCookie.substring(0, resetSetCookie.indexOf(';')));
 
         // 食物记录
         String today = LocalDate.now().toString();
@@ -258,6 +359,13 @@ class AuthFlowTest {
         Map<?, ?> healthAfterFood = (Map<?, ?>) stateAfterFoodData.get("health");
         assertThat(healthAfterFood.get("foodKcal")).isEqualTo(100);
 
+        // 数据导出：包含账号、健康状态、食物和运动记录
+        ResponseEntity<Map> export = rest.exchange(
+                base + "/api/me/export", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        assertThat(export.getStatusCode().value()).isEqualTo(200);
+        assertThat(export.getBody()).containsKeys("account", "health", "foodLogs", "exerciseLogs");
+        assertThat((List<?>) export.getBody().get("foodLogs")).hasSize(1);
+
         // 注销账号：数据级联删除，旧 token 失效
         ResponseEntity<Map> deleteAccount = rest.exchange(
                 base + "/api/me", HttpMethod.DELETE, new HttpEntity<>(headers), Map.class);
@@ -278,5 +386,69 @@ class AuthFlowTest {
                     .as("phone %s should be rejected", phone)
                     .isEqualTo(400);
         }
+    }
+
+    @Test
+    void rejectsCrossSiteWrites() {
+        String base = "http://localhost:" + port;
+
+        HttpHeaders evil = new HttpHeaders();
+        evil.setOrigin("https://evil.example");
+        ResponseEntity<String> blocked = rest.exchange(
+                base + "/api/auth/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("phone", "13800009901"), evil),
+                String.class);
+        assertThat(blocked.getStatusCode().value()).isEqualTo(403);
+
+        HttpHeaders opaque = new HttpHeaders();
+        opaque.setOrigin("null");
+        ResponseEntity<String> opaqueBlocked = rest.exchange(
+                base + "/api/auth/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("phone", "13800009904"), opaque),
+                String.class);
+        assertThat(opaqueBlocked.getStatusCode().value()).isEqualTo(403);
+
+        HttpHeaders allowed = new HttpHeaders();
+        allowed.setOrigin("http://localhost:5173");
+        ResponseEntity<Map> passed = rest.exchange(
+                base + "/api/auth/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("phone", "13800009902"), allowed),
+                Map.class);
+        assertThat(passed.getStatusCode().value()).isEqualTo(200);
+    }
+
+    @Test
+    void rejectsPasswordChangeWithoutLetterAndDigit() {
+        String base = "http://localhost:" + port;
+
+        ResponseEntity<Map> sendCode = rest.postForEntity(
+                base + "/api/auth/send-code", Map.of("phone", "13800009903"), Map.class);
+        String code = (String) ((Map<?, ?>) sendCode.getBody().get("data")).get("devCode");
+        ResponseEntity<Map> login = rest.postForEntity(
+                base + "/api/auth/login", Map.of("phone", "13800009903", "code", code), Map.class);
+        String setCookie = login.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, setCookie.substring(0, setCookie.indexOf(';')));
+
+        for (String weak : List.of("abc1234", "abcdefgh", "12345678", "abcd 1234")) {
+            ResponseEntity<Map> response = rest.exchange(
+                    base + "/api/me/password",
+                    HttpMethod.PUT,
+                    new HttpEntity<>(Map.of("newPassword", weak), headers),
+                    Map.class);
+            assertThat(response.getStatusCode().value())
+                    .as("password %s should be rejected", weak)
+                    .isEqualTo(400);
+        }
+
+        ResponseEntity<Map> accepted = rest.exchange(
+                base + "/api/me/password",
+                HttpMethod.PUT,
+                new HttpEntity<>(Map.of("newPassword", "Strong123"), headers),
+                Map.class);
+        assertThat(accepted.getStatusCode().value()).isEqualTo(200);
     }
 }

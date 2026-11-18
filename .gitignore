@@ -4,6 +4,10 @@ dist/
 target/
 .mysql-data/
 
+# 运行期上传文件与本地数据库备份
+healthcare-api/data/
+backups/
+
 # 本地配置与密钥
 .env
 .env.*

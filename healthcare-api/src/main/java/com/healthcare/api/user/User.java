@@ -34,6 +34,13 @@ public class User {
     @Column(name = "password_hash", length = 100)
     private String passwordHash;
 
+    /** 头像版本号：每次上传/删除自增，用作图片 URL 的缓存版本。 */
+    @Column(name = "avatar_version", nullable = false)
+    private int avatarVersion;
+
+    @Column(name = "has_avatar", nullable = false)
+    private boolean hasAvatar;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -90,6 +97,22 @@ public class User {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public int getAvatarVersion() {
+        return avatarVersion;
+    }
+
+    public void setAvatarVersion(int avatarVersion) {
+        this.avatarVersion = avatarVersion;
+    }
+
+    public boolean isHasAvatar() {
+        return hasAvatar;
+    }
+
+    public void setHasAvatar(boolean hasAvatar) {
+        this.hasAvatar = hasAvatar;
     }
 
     public Instant getCreatedAt() {

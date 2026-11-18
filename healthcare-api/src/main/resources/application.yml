@@ -2,10 +2,19 @@
 server:
   port: 8080
   forward-headers-strategy: framework
+  # 收到停止信号后等待进行中的请求完成
+  shutdown: graceful
 
 spring:
   application:
     name: healthcare-api
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  # 头像上传限制
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
   # 数据源：生产环境通过 DB_URL / DB_USER / DB_PASSWORD 覆盖
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/healthcare?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8}
@@ -27,9 +36,22 @@ spring:
     baseline-version: 0
     locations: classpath:db/migration
 
+# 运维：仅暴露健康检查，供容器/负载均衡探活
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
 # 应用配置：开发模式、跨域、登录 Cookie、限流和短信 Webhook
 app:
   dev-mode: ${APP_DEV_MODE:true}
+  upload-dir: ${APP_UPLOAD_DIR:./data/uploads}
   token-ttl-days: ${APP_TOKEN_TTL_DAYS:7}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175}
@@ -41,6 +63,9 @@ app:
     send-code-cooldown-seconds: ${SEND_CODE_COOLDOWN_SECONDS:60}
     send-code-max-per-hour: ${SEND_CODE_MAX_PER_HOUR:10}
     login-max-attempts-per-10-min: ${LOGIN_MAX_ATTEMPTS_PER_10_MIN:10}
+    phone-change-max-per-hour: ${PHONE_CHANGE_MAX_PER_HOUR:5}
+    login-ip-max-per-10-min: ${LOGIN_IP_MAX_PER_10_MIN:100}
+    send-code-ip-max-per-hour: ${SEND_CODE_IP_MAX_PER_HOUR:30}
   sms:
     webhook-url: ${SMS_WEBHOOK_URL:}
     webhook-token: ${SMS_WEBHOOK_TOKEN:}

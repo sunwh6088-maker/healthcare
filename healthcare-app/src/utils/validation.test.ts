@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatPhone, isValidEmail, isValidPhone, maskPhone, normalizePhone } from './validation'
+import {
+  formatPhone,
+  isValidEmail,
+  isValidPassword,
+  isValidPhone,
+  maskPhone,
+  normalizePhone,
+  passwordError,
+} from './validation'
 
 describe('isValidPhone', () => {
   it('接受 11 位国内手机号，允许空格与 +86 前缀', () => {
@@ -57,5 +65,20 @@ describe('maskPhone', () => {
 
   it('过短号码原样返回', () => {
     expect(maskPhone('123')).toBe('123')
+  })
+})
+
+describe('passwordError', () => {
+  it('接受 8-64 位且含字母和数字的密码', () => {
+    expect(isValidPassword('pass1234')).toBe(true)
+    expect(isValidPassword('StrongPass2026')).toBe(true)
+  })
+
+  it('拒绝过短、纯字母、纯数字和含空格的密码', () => {
+    expect(passwordError('abc1234')).toBe('密码需为 8-64 位')
+    expect(passwordError('abcdefgh')).toBe('密码需包含数字')
+    expect(passwordError('12345678')).toBe('密码需包含字母')
+    expect(passwordError('abcd 1234')).toBe('密码不能包含空格')
+    expect(passwordError('a'.repeat(65) + '1')).toBe('密码需为 8-64 位')
   })
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 模块：登录页 —— 验证码登录和密码登录。
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { setPendingPhone, setPendingDevCode, setSession } from '../utils/session'
@@ -15,6 +15,22 @@ const password = ref('')
 const mode = ref('code')
 const sending = ref(false)
 const loggingIn = ref(false)
+
+// 登录前需勾选同意用户协议和隐私政策
+const AGREEMENT_KEY = 'healthcare-agreement-accepted'
+const agreed = ref(localStorage.getItem(AGREEMENT_KEY) === '1')
+watch(agreed, (value) => {
+  if (value) localStorage.setItem(AGREEMENT_KEY, '1')
+  else localStorage.removeItem(AGREEMENT_KEY)
+})
+
+function ensureAgreed(): boolean {
+  if (!agreed.value) {
+    toast('请先阅读并同意《用户协议》和《隐私政策》')
+    return false
+  }
+  return true
+}
 
 const loginModes = [
   { value: 'code', label: '验证码登录' },
@@ -40,6 +56,7 @@ function ensurePhone(): string | null {
 }
 
 async function continueFlow() {
+  if (!ensureAgreed()) return
   const value = ensurePhone()
   if (!value) return
   sending.value = true
@@ -57,6 +74,7 @@ async function continueFlow() {
 }
 
 async function passwordLogin() {
+  if (!ensureAgreed()) return
   const value = ensurePhone()
   if (!value) return
   if (!password.value) {
@@ -138,6 +156,16 @@ async function passwordLogin() {
       <button class="forgot orange-link" @click="router.push('/forgot-password')">
         忘记密码？
       </button>
+
+      <label class="agreement">
+        <input v-model="agreed" type="checkbox" />
+        <span>
+          我已阅读并同意
+          <RouterLink to="/terms" class="legal-link">《用户协议》</RouterLink>
+          和
+          <RouterLink to="/privacy" class="legal-link">《隐私政策》</RouterLink>
+        </span>
+      </label>
     </div>
   </div>
 </template>
@@ -225,5 +253,24 @@ async function passwordLogin() {
   margin-top: 20px;
   text-align: center;
   font-size: var(--fs-body2);
+}
+
+.agreement {
+  margin-top: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--neutral-2);
+}
+
+.agreement input {
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
+
+.legal-link {
+  color: var(--primary);
 }
 </style>

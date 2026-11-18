@@ -30,6 +30,22 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+/**
+ * 密码策略：8-64 位、不含空白、同时包含字母和数字（与后端一致）。
+ * 返回具体错误信息，合法时返回 null。
+ */
+export function passwordError(value: string): string | null {
+  if (/\s/.test(value)) return '密码不能包含空格'
+  if (value.length < 8 || value.length > 64) return '密码需为 8-64 位'
+  if (!/[A-Za-z]/.test(value)) return '密码需包含字母'
+  if (!/\d/.test(value)) return '密码需包含数字'
+  return null
+}
+
+export function isValidPassword(value: string): boolean {
+  return passwordError(value) === null
+}
+
 export function maskPhone(value: string): string {
   const digits = normalizePhone(value)
   if (MAINLAND_PHONE_RE.test(digits)) {

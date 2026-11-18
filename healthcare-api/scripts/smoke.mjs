@@ -1,5 +1,8 @@
-const base = 'http://localhost:8080/api'
-const phone = '13900001111'
+// 真实 MySQL 环境接口冒烟：登录后使用 HttpOnly Cookie 访问需要认证的接口。
+// 用法：API_BASE=http://localhost:8081/api node scripts/smoke.mjs
+const base = (process.env.API_BASE || 'http://localhost:8080/api').replace(/\/$/, '')
+const suffix = String(Date.now()).slice(-8)
+const phone = `137${suffix}`
 
 const json = async (res) => {
   const body = await res.json()
@@ -17,40 +20,68 @@ const send = await post('/auth/send-code', { phone })
 const code = send.data.devCode
 console.log('send-code devCode:', code)
 
-const login = await post('/auth/login', { phone, code })
-const token = login.data.token
-const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+const loginResponse = await fetch(base + '/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ phone, code }),
+})
+const login = await json(loginResponse)
+const cookie = loginResponse.headers.getSetCookie()[0].split(';')[0]
+const headers = { 'Content-Type': 'application/json', Cookie: cookie }
+const authHeaders = { Cookie: cookie }
 console.log('login:', { newUser: login.data.newUser, user: login.data.user })
 
 const me = await fetch(base + '/me', { headers }).then(json)
 console.log('me:', me.data)
 
-const state = await fetch(base + '/state', { headers }).then(json)
-console.log('state:', {
-  steps: state.data.health.steps,
-  waterMl: state.data.health.waterMl,
-  alarms: state.data.alarms.length,
-})
+// 头像上传、读取、删除
+const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+const form = new FormData()
+form.append('file', new Blob([png], { type: 'image/png' }), 'avatar.png')
+const avatarUpload = await fetch(base + '/me/avatar', {
+  method: 'POST',
+  headers: authHeaders,
+  body: form,
+}).then(json)
+console.log('avatar uploaded:', avatarUpload.data.avatarUrl)
 
-const health = { ...state.data.health, steps: 5123, waterMl: 1200 }
-const alarms = [{ time: '07:30', label: 'MySQL 测试闹钟', repeat: [1, 3, 5], on: true }]
+const avatarImage = await fetch(base + '/me/avatar', { headers: authHeaders })
+console.log('avatar image:', avatarImage.status, avatarImage.headers.get('content-type'))
+await fetch(base + '/me/avatar', { method: 'DELETE', headers: authHeaders }).then(json)
+
+// 修改手机号需要新号码验证码
+const newPhone = `138${suffix}`
+const phoneCode = await fetch(base + '/me/phone/send-code', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({ phone: newPhone }),
+}).then(json)
+const phoneUpdated = await fetch(base + '/me/phone', {
+  method: 'PUT',
+  headers,
+  body: JSON.stringify({ phone: newPhone, code: phoneCode.data.devCode }),
+}).then(json)
+console.log('phone updated:', phoneUpdated.data.phone)
+
+// 睡眠时间写入与读取
+const state = await fetch(base + '/state', { headers }).then(json)
+const health = { ...state.data.health, sleepStartMinutes: 22 * 60 + 30, sleepMinutes: 8 * 60 }
 const saved = await fetch(base + '/state', {
   method: 'PUT',
   headers,
-  body: JSON.stringify({ health, alarms }),
+  body: JSON.stringify({ health, alarms: state.data.alarms }),
 }).then(json)
-console.log('saved:', {
-  steps: saved.data.health.steps,
-  waterMl: saved.data.health.waterMl,
-  alarms: saved.data.alarms,
+console.log('sleep saved:', {
+  start: saved.data.health.sleepStartMinutes,
+  minutes: saved.data.health.sleepMinutes,
+  alarms: saved.data.alarms.length,
 })
 
-const patched = await fetch(base + '/me', {
-  method: 'PATCH',
-  headers,
-  body: JSON.stringify({ email: 'mysql@example.com' }),
-}).then(json)
-console.log('patched email:', patched.data.email)
+// 数据导出
+const exported = await fetch(base + '/me/export', { headers }).then(json)
+console.log('export keys:', Object.keys(exported))
 
-const unauthorized = await fetch(base + '/state')
-console.log('unauthorized status:', unauthorized.status)
+// 退出登录后旧 Cookie 失效
+await fetch(base + '/auth/logout', { method: 'POST', headers }).then(json)
+const afterLogout = await fetch(base + '/me', { headers })
+console.log('after logout status:', afterLogout.status)

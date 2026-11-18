@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import NumericKeypad from '../components/NumericKeypad.vue'
 import { toast } from '../utils/toast'
+import { passwordError } from '../utils/validation'
 import { api } from '../api'
 import { setSession } from '../utils/session'
 import { syncFromServer } from '../utils/healthStore'
@@ -50,8 +51,9 @@ function back() {
 }
 
 async function submit() {
-  if (pwd1.value.length < 6) {
-    toast('新密码至少 6 位')
+  const pwdError = passwordError(pwd1.value)
+  if (pwdError) {
+    toast(pwdError)
     return
   }
   if (pwd1.value !== pwd2.value) {

@@ -11,5 +11,9 @@ public interface AuthTokenRepository extends JpaRepository<AuthTokenEntity, Long
 
     void deleteByTokenHash(String tokenHash);
 
+    void deleteByUserId(Long userId);
+
+    void deleteByUserIdAndTokenHashNot(Long userId, String tokenHash);
+
     void deleteByExpiresAtBefore(Instant now);
 }

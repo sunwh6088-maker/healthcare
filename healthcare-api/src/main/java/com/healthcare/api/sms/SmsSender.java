@@ -5,5 +5,6 @@ package com.healthcare.api.sms;
  */
 public interface SmsSender {
 
-    void sendVerificationCode(String phone, String code);
+    /** scene 用于区分登录、修改手机号等短信模板，例如 login / change-phone。 */
+    void sendVerificationCode(String phone, String code, String scene);
 }

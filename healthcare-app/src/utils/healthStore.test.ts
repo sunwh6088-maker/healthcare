@@ -11,7 +11,7 @@ describe('healthStore', () => {
 
   it('提供默认健康数据', async () => {
     const { health } = await import('./healthStore')
-    expect(health.userName).toBe('杰西·比伯')
+    expect(health.userName).toBe('健康用户')
     expect(health.steps).toBe(4204)
     expect(health.stepsGoal).toBe(6000)
     expect(health.foodKcal).toBe(1284)

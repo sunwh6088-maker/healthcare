@@ -45,6 +45,22 @@ async function toggleNotify(enabled: boolean) {
   health.notifyEnabled = enabled
 }
 
+async function exportData() {
+  try {
+    const data = await api.exportMyData()
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `healthcare-export-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    toast('数据已导出 ✓')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '导出失败，请稍后再试')
+  }
+}
+
 async function logout() {
   try {
     await api.logout()
@@ -98,6 +114,21 @@ async function logout() {
       </div>
       <div class="menu-row" @click="router.push('/about')">
         <span class="m-label">关于我们</span>
+        <span class="m-arrow">›</span>
+      </div>
+    </div>
+
+    <div class="menu card mt-16">
+      <div class="menu-row" @click="exportData">
+        <span class="m-label">导出我的数据</span>
+        <span class="m-value">JSON</span>
+      </div>
+      <div class="menu-row" @click="router.push('/terms')">
+        <span class="m-label">用户协议</span>
+        <span class="m-arrow">›</span>
+      </div>
+      <div class="menu-row" @click="router.push('/privacy')">
+        <span class="m-label">隐私政策</span>
         <span class="m-arrow">›</span>
       </div>
     </div>

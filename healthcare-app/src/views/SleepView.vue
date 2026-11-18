@@ -7,6 +7,7 @@ import { toast } from '../utils/toast'
 import { health, type Alarm } from '../utils/healthStore'
 import { catalog, loadCatalog } from '../utils/catalog'
 import { repeatText } from '../utils/alarm'
+import { isReasonableSleep, minutesToTime, sleepDuration, timeToMinutes } from '../utils/sleep'
 
 const router = useRouter()
 
@@ -16,15 +17,45 @@ const sleepText = computed(() => {
   return `${h}小时${m}分`
 })
 
-function formatMinutes(total: number): string {
-  const m = ((total % 1440) + 1440) % 1440
-  const h = Math.floor(m / 60)
-  const mm = m % 60
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+const bedTime = computed(() => minutesToTime(health.sleepStartMinutes))
+const wakeTime = computed(() => minutesToTime(health.sleepStartMinutes + health.sleepMinutes))
+
+// 睡眠时间编辑
+const sleepSheetOpen = ref(false)
+const editBed = ref('23:00')
+const editWake = ref('07:00')
+
+const previewSleep = computed(() => {
+  const bed = timeToMinutes(editBed.value)
+  const wake = timeToMinutes(editWake.value)
+  if (bed === null || wake === null) return ''
+  const duration = sleepDuration(bed, wake)
+  return `${Math.floor(duration / 60)}小时${duration % 60}分`
+})
+
+function openSleepEdit() {
+  editBed.value = bedTime.value
+  editWake.value = wakeTime.value
+  sleepSheetOpen.value = true
 }
 
-const bedTime = computed(() => formatMinutes(health.sleepStartMinutes))
-const wakeTime = computed(() => formatMinutes(health.sleepStartMinutes + health.sleepMinutes))
+function saveSleepTimes() {
+  const bed = timeToMinutes(editBed.value)
+  const wake = timeToMinutes(editWake.value)
+  if (bed === null || wake === null) {
+    toast('请选择有效的就寝和醒来时间')
+    return
+  }
+  const duration = sleepDuration(bed, wake)
+  if (!isReasonableSleep(duration)) {
+    toast('睡眠时长需在 1-16 小时之间')
+    return
+  }
+  health.sleepStartMinutes = bed
+  health.sleepMinutes = duration
+  sleepSheetOpen.value = false
+  toast('睡眠时间已更新 ✓')
+}
 
 const clockNums = [
   { n: '12', x: 50, y: 6 },
@@ -237,15 +268,16 @@ function setAlarm(a: Alarm, on: boolean) {
         <span class="sub">总睡眠时长</span>
       </div>
       <div class="bed-wake">
-        <div class="bw">
+        <button type="button" class="bw" @click="openSleepEdit">
           <span class="bw-label">就寝时间</span>
           <span class="num bw-value">{{ bedTime }}</span>
-        </div>
-        <div class="bw">
+        </button>
+        <button type="button" class="bw" @click="openSleepEdit">
           <span class="bw-label">醒来时间</span>
           <span class="num bw-value">{{ wakeTime }}</span>
-        </div>
+        </button>
       </div>
+      <p class="sleep-tip">点按时间可调整睡眠记录</p>
     </div>
 
     <!-- 闹钟列表 -->
@@ -284,6 +316,27 @@ function setAlarm(a: Alarm, on: boolean) {
       <span class="sound-name">{{ sound.name }}</span>
       <span class="sound-play">{{ soundPlaying ? '⏸' : '▶' }}</span>
     </button>
+
+    <!-- 编辑睡眠时间弹层 -->
+    <BottomSheet :open="sleepSheetOpen" @close="sleepSheetOpen = false">
+      <h3 class="sheet-title">调整睡眠时间</h3>
+
+      <label class="sheet-field">
+        <span class="sheet-key">就寝时间</span>
+        <input v-model="editBed" class="num sheet-input sheet-time" type="time" />
+      </label>
+
+      <label class="sheet-field">
+        <span class="sheet-key">醒来时间</span>
+        <input v-model="editWake" class="num sheet-input sheet-time" type="time" />
+      </label>
+
+      <p v-if="previewSleep" class="sleep-preview">本次睡眠时长：{{ previewSleep }}</p>
+
+      <div class="sheet-actions">
+        <button class="btn-primary" @click="saveSleepTimes">保存</button>
+      </div>
+    </BottomSheet>
 
     <!-- 编辑/新增闹钟弹层 -->
     <BottomSheet :open="sheetOpen" @close="closeSheet">
@@ -414,12 +467,28 @@ function setAlarm(a: Alarm, on: boolean) {
 .bw {
   flex: 1;
   background: var(--surface-soft, #f7f9f8);
+  border: none;
   border-radius: var(--radius-md);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-items: center;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sleep-tip {
+  margin-top: 10px;
+  font-size: var(--fs-caption);
+  color: var(--neutral-2);
+}
+
+.sleep-preview {
+  font-size: var(--fs-body2);
+  color: var(--neutral-2);
+  text-align: center;
 }
 
 .bw-label {
