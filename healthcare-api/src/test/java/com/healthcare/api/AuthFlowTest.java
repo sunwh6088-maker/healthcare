@@ -82,8 +82,8 @@ class AuthFlowTest {
         assertThat(state.getStatusCode().value()).isEqualTo(200);
         Map<?, ?> stateData = (Map<?, ?>) state.getBody().get("data");
         Map<String, Object> health = new HashMap<>((Map<String, Object>) stateData.get("health"));
-        assertThat(health.get("steps")).isEqualTo(4204);
-        assertThat(health.get("sleepMinutes")).isEqualTo(500);
+        assertThat(health.get("steps")).isEqualTo(0);
+        assertThat(health.get("sleepMinutes")).isEqualTo(0);
         assertThat((List<?>) stateData.get("alarms")).hasSize(2);
 
         health.put("steps", 5000);
@@ -133,11 +133,22 @@ class AuthFlowTest {
                     .isEqualTo(400);
         }
 
-        // 设置密码（账号此前没有密码，oldPassword 可省略）
+        // 首次设置密码：账号无密码，需校验当前手机号验证码
+        ResponseEntity<Map> stepUpSend = rest.exchange(
+                base + "/api/me/step-up/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                Map.class);
+        assertThat(stepUpSend.getStatusCode().value()).isEqualTo(200);
+        String stepUpCode =
+                (String) ((Map<?, ?>) stepUpSend.getBody().get("data")).get("devCode");
+        assertThat(stepUpCode).matches("\\d{6}");
+
         ResponseEntity<Map> changePassword = rest.exchange(
                 base + "/api/me/password",
                 HttpMethod.PUT,
-                new HttpEntity<>(Map.of("newPassword", "pass1234"), headers),
+                new HttpEntity<>(
+                        Map.of("newPassword", "pass1234", "currentCode", stepUpCode), headers),
                 Map.class);
         assertThat(changePassword.getStatusCode().value()).isEqualTo(200);
 
@@ -212,17 +223,34 @@ class AuthFlowTest {
                 (String) ((Map<?, ?>) phoneCodeResp.getBody().get("data")).get("devCode");
         assertThat(phoneCode).matches("\\d{6}");
 
+        // 当前密码错误时拒绝改绑（不会消耗新号码验证码）
+        ResponseEntity<Map> wrongCurrentPassword = rest.exchange(
+                base + "/api/me/phone",
+                HttpMethod.PUT,
+                new HttpEntity<>(
+                        Map.of("phone", newPhone, "code", phoneCode,
+                                "currentPassword", "wrong1234"),
+                        headers),
+                Map.class);
+        assertThat(wrongCurrentPassword.getStatusCode().value()).isEqualTo(400);
+
         ResponseEntity<Map> wrongPhoneCode = rest.exchange(
                 base + "/api/me/phone",
                 HttpMethod.PUT,
-                new HttpEntity<>(Map.of("phone", newPhone, "code", "000000"), headers),
+                new HttpEntity<>(
+                        Map.of("phone", newPhone, "code", "000000",
+                                "currentPassword", "pass1234"),
+                        headers),
                 Map.class);
         assertThat(wrongPhoneCode.getStatusCode().value()).isEqualTo(400);
 
         ResponseEntity<Map> phoneUpdated = rest.exchange(
                 base + "/api/me/phone",
                 HttpMethod.PUT,
-                new HttpEntity<>(Map.of("phone", newPhone, "code", phoneCode), headers),
+                new HttpEntity<>(
+                        Map.of("phone", newPhone, "code", phoneCode,
+                                "currentPassword", "pass1234"),
+                        headers),
                 Map.class);
         assertThat(phoneUpdated.getStatusCode().value()).isEqualTo(200);
         Map<?, ?> phoneUpdatedData = (Map<?, ?>) phoneUpdated.getBody().get("data");
@@ -287,6 +315,42 @@ class AuthFlowTest {
                 new HttpEntity<>(avatarHeaders),
                 String.class);
         assertThat(avatarAfterDelete.getStatusCode().value()).isEqualTo(404);
+
+        // Web Push：公钥、订阅与退订
+        ResponseEntity<Map> pushKey = rest.exchange(
+                base + "/api/push/public-key", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        assertThat(pushKey.getStatusCode().value()).isEqualTo(200);
+        String vapidPublicKey = (String) ((Map<?, ?>) pushKey.getBody().get("data"))
+                .get("publicKey");
+        assertThat(vapidPublicKey).isNotBlank();
+
+        String fakeEndpoint = "https://fcm.googleapis.com/fcm/send/test-" + System.nanoTime();
+        Map<String, Object> subscription = Map.of(
+                "endpoint", fakeEndpoint,
+                "keys", Map.of("p256dh", "test-p256dh", "auth", "test-auth"));
+        ResponseEntity<Map> subscribed = rest.exchange(
+                base + "/api/push/subscribe",
+                HttpMethod.POST,
+                new HttpEntity<>(subscription, headers),
+                Map.class);
+        assertThat(subscribed.getStatusCode().value()).isEqualTo(200);
+
+        Map<String, Object> insecureSubscription = Map.of(
+                "endpoint", "http://fcm.googleapis.com/fcm/send/insecure",
+                "keys", Map.of("p256dh", "test", "auth", "test"));
+        ResponseEntity<Map> rejected = rest.exchange(
+                base + "/api/push/subscribe",
+                HttpMethod.POST,
+                new HttpEntity<>(insecureSubscription, headers),
+                Map.class);
+        assertThat(rejected.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Map> unsubscribed = rest.exchange(
+                base + "/api/push/unsubscribe",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("endpoint", fakeEndpoint), headers),
+                Map.class);
+        assertThat(unsubscribed.getStatusCode().value()).isEqualTo(200);
 
         // 验证码重置密码（使用修改后的手机号）
         ResponseEntity<Map> resetSendCode = rest.postForEntity(
@@ -399,9 +463,16 @@ class AuthFlowTest {
         assertThat(export.getBody()).containsKeys("account", "health", "foodLogs", "exerciseLogs");
         assertThat((List<?>) export.getBody().get("foodLogs")).hasSize(1);
 
-        // 注销账号：数据级联删除，旧 token 失效
-        ResponseEntity<Map> deleteAccount = rest.exchange(
+        // 注销账号需当前密码；缺少凭证时拒绝
+        ResponseEntity<Map> deleteWithoutCredential = rest.exchange(
                 base + "/api/me", HttpMethod.DELETE, new HttpEntity<>(headers), Map.class);
+        assertThat(deleteWithoutCredential.getStatusCode().value()).isEqualTo(400);
+
+        ResponseEntity<Map> deleteAccount = rest.exchange(
+                base + "/api/me",
+                HttpMethod.DELETE,
+                new HttpEntity<>(Map.of("password", "newpass123"), headers),
+                Map.class);
         assertThat(deleteAccount.getStatusCode().value()).isEqualTo(200);
         ResponseEntity<String> afterDelete = rest.exchange(
                 base + "/api/me", HttpMethod.GET, new HttpEntity<>(headers), String.class);
@@ -477,10 +548,19 @@ class AuthFlowTest {
                     .isEqualTo(400);
         }
 
+        ResponseEntity<Map> stepUpSend = rest.exchange(
+                base + "/api/me/step-up/send-code",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                Map.class);
+        String stepUpCode =
+                (String) ((Map<?, ?>) stepUpSend.getBody().get("data")).get("devCode");
+
         ResponseEntity<Map> accepted = rest.exchange(
                 base + "/api/me/password",
                 HttpMethod.PUT,
-                new HttpEntity<>(Map.of("newPassword", "Strong123"), headers),
+                new HttpEntity<>(
+                        Map.of("newPassword", "Strong123", "currentCode", stepUpCode), headers),
                 Map.class);
         assertThat(accepted.getStatusCode().value()).isEqualTo(200);
     }

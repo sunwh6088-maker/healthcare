@@ -33,4 +33,11 @@ app.component('BottomSheet', BottomSheet)
 // 全局轻提示：用于没有独立页面的占位交互
 app.config.globalProperties.$toast = toast
 
+// 注册 Service Worker，用于接收 Web Push 通知（不缓存页面，避免版本残留）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+  })
+}
+
 app.use(router).mount('#app')

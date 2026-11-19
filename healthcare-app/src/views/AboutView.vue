@@ -7,10 +7,11 @@ const router = useRouter()
 
 const features = [
   '食物 / 饮水 / 睡眠 / 步数 / 运动记录',
-  '健康数据跨设备同步',
-  '运动记录新增、编辑和删除',
-  '基础数据由数据库统一维护',
-  'HttpOnly Cookie 登录与验证码限流',
+  '健康数据跨设备同步与登录设备管理',
+  'MQTT 设备接入与数据上报',
+  '闹钟 Web Push 提醒',
+  '敏感操作密码/短信二次验证',
+  '数据导出、账号注销与隐私保护',
 ]
 
 const stack = ['Vue 3', 'TypeScript', 'Vite', 'Spring Boot', 'MySQL', 'Flyway']

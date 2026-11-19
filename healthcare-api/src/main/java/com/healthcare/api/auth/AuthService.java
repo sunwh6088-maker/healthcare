@@ -35,6 +35,7 @@ public class AuthService {
     private final TokenService tokens;
     private final RateLimitService rateLimits;
     private final SmsSender smsSender;
+    private final StepUpService stepUp;
     private final boolean devMode;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -45,6 +46,7 @@ public class AuthService {
                        TokenService tokens,
                        RateLimitService rateLimits,
                        SmsSender smsSender,
+                       StepUpService stepUp,
                        @Value("${app.dev-mode:true}") boolean devMode) {
         this.users = users;
         this.healthStates = healthStates;
@@ -53,6 +55,7 @@ public class AuthService {
         this.tokens = tokens;
         this.rateLimits = rateLimits;
         this.smsSender = smsSender;
+        this.stepUp = stepUp;
         this.devMode = devMode;
     }
 
@@ -146,13 +149,8 @@ public class AuthService {
     public void changePassword(Long userId, AuthDtos.ChangePasswordRequest request,
                                String currentRawToken) {
         User user = users.findById(userId).orElseThrow(() -> new ApiException(404, "用户不存在"));
-        if (user.getPasswordHash() != null && !user.getPasswordHash().isBlank()) {
-            if (request.oldPassword() == null
-                    || request.oldPassword().isBlank()
-                    || !passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
-                throw new ApiException(400, "当前密码不正确");
-            }
-        }
+        // 有密码时校验当前密码；首次设置密码时校验当前手机号验证码
+        stepUp.requireCredential(user, request.oldPassword(), request.currentCode());
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         users.save(user);
         // 修改密码后保留当前会话，其他设备上的登录全部失效

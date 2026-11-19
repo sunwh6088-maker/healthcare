@@ -8,5 +8,7 @@ public interface AlarmRepository extends JpaRepository<AlarmEntity, Long> {
 
     List<AlarmEntity> findByUserIdOrderByTimeAsc(Long userId);
 
+    List<AlarmEntity> findByEnabledTrue();
+
     void deleteByUserId(Long userId);
 }

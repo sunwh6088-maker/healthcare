@@ -39,13 +39,21 @@ public record UserDto(
                 message = "请输入正确的 11 位中国大陆手机号") String phone) {
     }
 
-    /** 修改手机号第 2 步：携带新号码和验证码完成绑定。 */
+    /** 修改手机号第 2 步：携带新号码、验证码和当前身份凭证。 */
     public record PhoneUpdateRequest(
             @NotBlank(message = "手机号不能为空")
             @Pattern(
                 regexp = "^\\s*(?:\\+?86)?[\\s-]*1[3-9](?:[\\s-]*\\d){9}\\s*$",
                 message = "请输入正确的 11 位中国大陆手机号") String phone,
-            @NotBlank(message = "验证码不能为空") String code) {
+            @NotBlank(message = "验证码不能为空") String code,
+            @Size(max = 64, message = "当前密码过长") String currentPassword,
+            String currentCode) {
+    }
+
+    /** 注销等敏感操作的二次凭证。 */
+    public record StepUpRequest(
+            @Size(max = 64, message = "密码过长") String password,
+            String code) {
     }
 
     /** 开发模式下附带 devCode 便于联调；生产环境 devCode 为 null。 */

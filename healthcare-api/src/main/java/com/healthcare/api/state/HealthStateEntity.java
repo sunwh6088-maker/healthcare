@@ -65,19 +65,19 @@ public class HealthStateEntity {
         state.weightKg = 60;
         state.foodKcal = 0;
         state.exerciseCount = 0;
-        state.steps = 4204;
+        state.steps = 0;
         state.stepsGoal = 6000;
-        state.waterMl = 900;
+        state.waterMl = 0;
         state.waterGoalMl = 2000;
         state.activeMinutes = 0;
         state.activeGoalMinutes = 60;
-        state.sleepMinutes = 500;
+        state.sleepMinutes = 0;
         state.sleepStartMinutes = 23 * 60;
-        state.notifyEnabled = true;
+        state.notifyEnabled = false;
         state.privacyEnabled = true;
-        state.deviceConnected = true;
+        state.deviceConnected = false;
         state.deviceAdded = false;
-        state.deviceBattery = 86;
+        state.deviceBattery = 0;
         state.deviceLastSyncAt = Instant.now();
         return state;
     }

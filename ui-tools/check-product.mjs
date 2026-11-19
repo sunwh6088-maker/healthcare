@@ -20,6 +20,9 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox', '--disable-gpu'],
 })
 const page = await browser.newPage()
+await browser
+  .defaultBrowserContext()
+  .overridePermissions('http://localhost:5173', ['notifications'])
 await page.setViewport({ width: 500, height: 1000, deviceScaleFactor: 1 })
 page.on('console', (m) => {
   if (m.type() === 'error') errors.push('console: ' + m.text())
@@ -101,6 +104,15 @@ try {
     },
     { timeout: 5000 },
   )
+  // 无密码账号需要当前手机号验证码完成二次验证
+  await clickText('发送当前手机号验证码')
+  await page.waitForFunction(
+    () => {
+      const input = document.querySelector('input[placeholder="请输入当前手机号验证码"]')
+      return input && /^\d{6}$/.test(input.value)
+    },
+    { timeout: 8000 },
+  )
   await clickText('确认修改')
   await page.waitForFunction(
     (last4) => (document.body.innerText || '').includes('139 **** ' + last4),
@@ -116,6 +128,41 @@ try {
   await page.waitForSelector('img[alt="头像"]', { timeout: 10000 })
   const avatarSrc = await page.$eval('img[alt="头像"]', (el) => el.getAttribute('src'))
   check('头像上传与展示', avatarSrc.includes('/api/me/avatar?v='), avatarSrc)
+
+  // 3.5 绑定 IoT 设备并模拟上报
+  await go('/devices')
+  await clickText('绑定')
+  await page.waitForFunction(
+    () => (document.body.innerText || '').includes('绑定设备'),
+    { timeout: 5000 },
+  )
+  const deviceInputs = await page.$$('.sheet-input')
+  await deviceInputs[0].evaluate((el, value) => {
+    el.value = value
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  }, `pk-e2e-${Date.now()}`)
+  await deviceInputs[1].evaluate((el) => {
+    el.value = 'watch-e2e'
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await deviceInputs[2].evaluate((el) => {
+    el.value = '测试手表'
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await clickText('绑定设备')
+  await page.waitForFunction(
+    () => (document.body.innerText || '').includes('测试手表'),
+    { timeout: 8000 },
+  )
+  await clickText('模拟上报')
+  await page.waitForFunction(
+    () => {
+      const state = JSON.parse(localStorage.getItem('healthcare-app-state') || '{}')
+      return typeof state.steps === 'number' && state.steps > 0
+    },
+    { timeout: 12000 },
+  )
+  check('IoT 设备绑定与模拟上报', true)
 
   // 4. 睡眠时间编辑
   await go('/sleep')
@@ -176,6 +223,33 @@ try {
     '数据导出 JSON',
     !!exported && !!exported.account && Array.isArray(exported.foodLogs),
     exportedFile,
+  )
+
+  // 7. Web Push：开启通知、确认订阅、发送测试推送
+  await page.evaluate(() => {
+    document.querySelector('button[role="switch"][aria-label="消息通知"]')?.click()
+  })
+  await page.waitForFunction(
+    () => localStorage.getItem('healthcare-push-enabled') === '1',
+    { timeout: 20000 },
+  )
+  const pushEndpoint = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+    return subscription ? subscription.endpoint : null
+  })
+  check('Web Push 订阅创建', !!pushEndpoint, pushEndpoint ? pushEndpoint.slice(0, 48) + '…' : '')
+
+  const testPushResponse = page.waitForResponse(
+    (res) => res.url().includes('/api/push/test') && res.status() === 200,
+    { timeout: 20000 },
+  )
+  await clickText('发送测试通知')
+  const pushBody = await (await testPushResponse).json()
+  check(
+    '测试推送请求',
+    pushBody.code === 0 || pushBody.code === 200,
+    `推送设备数 ${pushBody.data}`,
   )
 
   await page.screenshot({ path: 'C:/Users/21693/Projects/ui-tools/product-check.png' })

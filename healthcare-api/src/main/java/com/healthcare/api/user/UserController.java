@@ -4,6 +4,7 @@ import com.healthcare.api.auth.AuthCookieService;
 import com.healthcare.api.auth.AuthDtos;
 import com.healthcare.api.auth.AuthInterceptor;
 import com.healthcare.api.auth.AuthService;
+import com.healthcare.api.auth.StepUpService;
 import com.healthcare.api.common.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -43,17 +44,20 @@ public class UserController {
     private final AvatarService avatars;
     private final AccountExportService exportService;
     private final AuthCookieService authCookies;
+    private final StepUpService stepUp;
 
     public UserController(UserService userService,
                           AuthService authService,
                           AvatarService avatars,
                           AccountExportService exportService,
-                          AuthCookieService authCookies) {
+                          AuthCookieService authCookies,
+                          StepUpService stepUp) {
         this.userService = userService;
         this.authService = authService;
         this.avatars = avatars;
         this.exportService = exportService;
         this.authCookies = authCookies;
+        this.stepUp = stepUp;
     }
 
     @GetMapping
@@ -149,18 +153,28 @@ public class UserController {
         return ApiResponse.ok(new UserDto.PhoneCodeResponse("验证码已发送", devCode));
     }
 
-    /** 修改手机号第 2 步：验证新号码验证码并完成绑定。 */
+    /** 修改手机号第 2 步：验证当前凭证与新号码验证码后完成绑定。 */
     @PutMapping("/phone")
     public ApiResponse<UserDto> updatePhone(
             @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
             @Valid @RequestBody UserDto.PhoneUpdateRequest request) {
-        return ApiResponse.ok(userService.updatePhone(userId, request.phone(), request.code()));
+        return ApiResponse.ok(userService.updatePhone(userId, request));
+    }
+
+    /** 敏感操作前向当前手机号发送验证码（开发模式返回 devCode）。 */
+    @PostMapping("/step-up/send-code")
+    public ApiResponse<UserDto.PhoneCodeResponse> sendStepUpCode(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId) {
+        String devCode = stepUp.sendCode(userId);
+        return ApiResponse.ok(new UserDto.PhoneCodeResponse("验证码已发送", devCode));
     }
 
     @DeleteMapping
     public ApiResponse<Void> deleteAccount(
-            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId) {
-        userService.deleteAccount(userId);
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
+            @RequestBody(required = false) UserDto.StepUpRequest request) {
+        userService.deleteAccount(
+                userId, request == null ? new UserDto.StepUpRequest(null, null) : request);
         return ApiResponse.ok();
     }
 

@@ -18,13 +18,16 @@ public class StartupChecks implements ApplicationRunner {
     private final boolean devMode;
     private final boolean cookieSecure;
     private final String smsWebhookUrl;
+    private final String vapidPublicKey;
 
     public StartupChecks(@Value("${app.dev-mode:true}") boolean devMode,
                          @Value("${app.auth.cookie-secure:false}") boolean cookieSecure,
-                         @Value("${app.sms.webhook-url:}") String smsWebhookUrl) {
+                         @Value("${app.sms.webhook-url:}") String smsWebhookUrl,
+                         @Value("${app.push.public-key:}") String vapidPublicKey) {
         this.devMode = devMode;
         this.cookieSecure = cookieSecure;
         this.smsWebhookUrl = smsWebhookUrl == null ? "" : smsWebhookUrl.trim();
+        this.vapidPublicKey = vapidPublicKey == null ? "" : vapidPublicKey.trim();
     }
 
     @Override
@@ -38,6 +41,10 @@ public class StartupChecks implements ApplicationRunner {
         }
         if (!cookieSecure) {
             log.warn("生产模式未启用 AUTH_COOKIE_SECURE，请务必通过 HTTPS 部署并设为 true");
+        }
+        if (vapidPublicKey.isBlank()) {
+            log.warn("生产模式未配置 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY，"
+                    + "推送将使用临时密钥，重启后浏览器订阅会失效");
         }
     }
 }

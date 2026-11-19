@@ -37,7 +37,7 @@ cp .env.example .env      # 至少设置 MYSQL_ROOT_PASSWORD
 docker compose up --build
 ```
 
-默认访问 `http://localhost:8088`。生产环境请在 `.env` 中设置 `APP_DEV_MODE=false`、`AUTH_COOKIE_SECURE=true`，并配置 `SMS_WEBHOOK_URL` 与 `CORS_ALLOWED_ORIGINS`。
+默认访问 `http://localhost:8088`。生产环境请在 `.env` 中设置 `APP_DEV_MODE=false`、`AUTH_COOKIE_SECURE=true`，并配置 `SMS_WEBHOOK_URL`、`VAPID_*` 与 `CORS_ALLOWED_ORIGINS`。完整的 HTTPS、备份、推送排查与上线清单见 [DEPLOY.md](DEPLOY.md)。
 
 ## 上线检查清单
 
@@ -92,10 +92,16 @@ CI 位于 `.github/workflows/`：`frontend-ci.yml` 和 `backend-ci.yml` 按改�
 - 登录 token 使用 HttpOnly Cookie，前端只在 localStorage 记录一个非敏感的已登录标记。
 - 账号安全：登录 token 只存在于 HttpOnly Cookie；密码 8-64 位且含字母和数字；修改手机号需新号码短信验证；
   写接口校验 Origin/Referer 防 CSRF；登录、验证码和改绑手机号均有频率限制。
+- 敏感操作二次验证：修改手机号、注销账号、首次设置密码时，有密码需输入当前密码，无密码需当前手机号验证码。
 - 登录设备：记录每次登录的设备与 IP，可在「账户与安全」查看并单独退出某台设备或一键退出其他设备；
   修改密码保留当前会话、重置密码撤销全部会话。
+- Web Push：设置页开启通知后，闹钟到点会通过 Service Worker 推送提醒；生产环境需 HTTPS 与固定 `VAPID_*` 密钥。
+- IoT 设备接入：通用 MQTT + Alink 物模型，设备上报 `sys/{productKey}/{deviceName}/thing/event/property/post`，
+  解析步数、饮水、睡眠、体重、电量并写入健康数据；设备页支持绑定、解绑，开发环境可模拟上报。
+  可连接 EMQX / Mosquitto / 阿里云 MQTT 版，配置见 [DEPLOY.md](DEPLOY.md#6-设备接入mqtt)。
 - 合规能力：登录页需同意《用户协议》《隐私政策》；设置页可导出全部个人数据（JSON）；
   账号注销会级联删除健康数据、记录和头像文件。
 - 头像保存在 `APP_UPLOAD_DIR`（Docker 中为 `/app/data/uploads`），仅接受 JPG/PNG/WebP，最大 2MB。
 - 生产部署前需关闭 `APP_DEV_MODE`、配置 `SMS_WEBHOOK_URL`、收紧 `CORS_ALLOWED_ORIGINS`，启用 HTTPS 并设置 `AUTH_COOKIE_SECURE=true`。
-- 项目当前处于“可上线 Web 应用”阶段；真实设备同步、系统通知推送和修改手机号前的原号码二次确认尚未实现。
+- 项目当前处于“可上线 Web 应用”阶段；真实设备同步尚未实现（需要厂商 SDK / 健康平台接入）。
+  验证码、限流与闹钟推送去重保存在进程内，多实例部署需引入 Redis 和分布式锁。

@@ -87,6 +87,32 @@ const editField = ref<EditField | null>(null)
 const editValue = ref('')
 const saving = ref(false)
 
+// 敏感操作二次验证：有密码输密码，无密码收当前手机号验证码
+const currentPassword = ref('')
+const currentCode = ref('')
+const stepUpDevCode = ref('')
+const stepUpSending = ref(false)
+
+function resetStepUp() {
+  currentPassword.value = ''
+  currentCode.value = ''
+  stepUpDevCode.value = ''
+}
+
+async function requestStepUpCode() {
+  stepUpSending.value = true
+  try {
+    const result = await api.sendStepUpCode()
+    stepUpDevCode.value = result.devCode ?? ''
+    currentCode.value = result.devCode ?? ''
+    toast('验证码已发送')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '验证码发送失败')
+  } finally {
+    stepUpSending.value = false
+  }
+}
+
 // 修改手机号分两步：输入新号码 → 验证新号码收到的短信验证码
 const phoneStep = ref<'input' | 'verify'>('input')
 const phoneCode = ref('')
@@ -144,6 +170,7 @@ function openEdit(field: EditField) {
   phoneStep.value = 'input'
   phoneCode.value = ''
   phoneDevCode.value = ''
+  resetStepUp()
 }
 
 function closeEdit() {
@@ -151,6 +178,7 @@ function closeEdit() {
   phoneStep.value = 'input'
   phoneCode.value = ''
   phoneDevCode.value = ''
+  resetStepUp()
   clearCooldown()
 }
 
@@ -158,6 +186,7 @@ function backToPhoneInput() {
   phoneStep.value = 'input'
   phoneCode.value = ''
   phoneDevCode.value = ''
+  resetStepUp()
 }
 
 /** 第 1 步：校验新号码并请求验证码。 */
@@ -186,16 +215,33 @@ async function sendPhoneCode() {
   }
 }
 
-/** 第 2 步：提交新号码和验证码。 */
+/** 第 2 步：校验当前凭证后提交新号码和验证码。 */
 async function confirmPhoneChange() {
   const value = normalizePhone(editValue.value)
   if (!/^\d{6}$/.test(phoneCode.value.trim())) {
     toast('请输入 6 位验证码')
     return
   }
+  if (hasPassword.value === true && !currentPassword.value) {
+    toast('请输入当前密码')
+    return
+  }
+  if (hasPassword.value === false && !/^\d{6}$/.test(currentCode.value.trim())) {
+    toast('请输入当前手机号验证码')
+    return
+  }
+  if (hasPassword.value === null) {
+    toast('账号信息加载中，请稍后再试')
+    return
+  }
   saving.value = true
   try {
-    const user = await api.updatePhone(value, phoneCode.value.trim())
+    const user = await api.updatePhone(
+      value,
+      phoneCode.value.trim(),
+      currentPassword.value || undefined,
+      currentCode.value.trim() || undefined,
+    )
     health.accountPhone = user.phone
     toast('手机号已更新')
     closeEdit()
@@ -238,14 +284,40 @@ async function saveEdit() {
   }
 }
 
+function openDelete() {
+  resetStepUp()
+  deleteText.value = ''
+  deleteOpen.value = true
+}
+
+function closeDelete() {
+  deleteOpen.value = false
+  resetStepUp()
+}
+
 async function deleteAccount() {
   if (deleteText.value.trim() !== '注销') {
     toast('请输入「注销」确认')
     return
   }
+  if (hasPassword.value === true && !currentPassword.value) {
+    toast('请输入当前密码')
+    return
+  }
+  if (hasPassword.value === false && !/^\d{6}$/.test(currentCode.value.trim())) {
+    toast('请输入当前手机号验证码')
+    return
+  }
+  if (hasPassword.value === null) {
+    toast('账号信息加载中，请稍后再试')
+    return
+  }
   deleting.value = true
   try {
-    await api.deleteMe()
+    await api.deleteMe({
+      password: currentPassword.value || undefined,
+      code: currentCode.value.trim() || undefined,
+    })
     stopRemoteSync()
     clearSession()
     toast('账户已注销')
@@ -333,7 +405,7 @@ async function deleteAccount() {
       退出其他设备
     </button>
 
-    <button class="danger mt-24" @click="deleteOpen = true">注销账户</button>
+    <button class="danger mt-24" @click="openDelete">注销账户</button>
     <p class="danger-tip">注销后所有健康数据将被清除，且无法恢复</p>
 
     <!-- 修改手机号 / 邮箱 -->
@@ -358,6 +430,35 @@ async function deleteAccount() {
           />
         </label>
         <p v-if="phoneDevCode" class="dev-tip">开发模式验证码：{{ phoneDevCode }}</p>
+
+        <!-- 当前身份凭证 -->
+        <label v-if="hasPassword" class="sheet-field">
+          <span class="sheet-key">当前密码</span>
+          <input
+            v-model="currentPassword"
+            class="sheet-input"
+            type="password"
+            autocomplete="current-password"
+            placeholder="请输入当前密码"
+          />
+        </label>
+        <template v-else-if="hasPassword === false">
+          <label class="sheet-field">
+            <span class="sheet-key">当前手机号验证码</span>
+            <input
+              v-model="currentCode"
+              class="sheet-input num"
+              inputmode="numeric"
+              maxlength="6"
+              placeholder="请输入当前手机号验证码"
+            />
+          </label>
+          <button class="step-up-send" :disabled="stepUpSending" @click="requestStepUpCode">
+            {{ stepUpSending ? '发送中...' : '发送当前手机号验证码' }}
+          </button>
+          <p v-if="stepUpDevCode" class="dev-tip">开发模式验证码：{{ stepUpDevCode }}</p>
+        </template>
+
         <div class="sheet-actions">
           <button
             class="sheet-delete"
@@ -414,7 +515,7 @@ async function deleteAccount() {
     </BottomSheet>
 
     <!-- 注销账户确认 -->
-    <BottomSheet :open="deleteOpen" @close="deleteOpen = false">
+    <BottomSheet :open="deleteOpen" @close="closeDelete">
       <h3 class="sheet-title">注销账户</h3>
       <p class="delete-warning">
         注销后将删除全部健康数据、食物与运动记录，且无法恢复。请输入「注销」确认。
@@ -423,6 +524,35 @@ async function deleteAccount() {
         <span class="sheet-key">确认文字</span>
         <input v-model="deleteText" class="sheet-input" placeholder="请输入：注销" />
       </label>
+
+      <!-- 当前身份凭证 -->
+      <label v-if="hasPassword" class="sheet-field">
+        <span class="sheet-key">当前密码</span>
+        <input
+          v-model="currentPassword"
+          class="sheet-input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="请输入当前密码"
+        />
+      </label>
+      <template v-else-if="hasPassword === false">
+        <label class="sheet-field">
+          <span class="sheet-key">当前手机号验证码</span>
+          <input
+            v-model="currentCode"
+            class="sheet-input num"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="请输入当前手机号验证码"
+          />
+        </label>
+        <button class="step-up-send" :disabled="stepUpSending" @click="requestStepUpCode">
+          {{ stepUpSending ? '发送中...' : '发送当前手机号验证码' }}
+        </button>
+        <p v-if="stepUpDevCode" class="dev-tip">开发模式验证码：{{ stepUpDevCode }}</p>
+      </template>
+
       <div class="sheet-actions">
         <button
           class="sheet-delete"
@@ -431,7 +561,7 @@ async function deleteAccount() {
         >
           {{ deleting ? '注销中...' : '确认注销' }}
         </button>
-        <button class="btn-primary" @click="deleteOpen = false">取消</button>
+        <button class="btn-primary" @click="closeDelete">取消</button>
       </div>
     </BottomSheet>
   </div>
@@ -639,5 +769,15 @@ async function deleteAccount() {
   font-size: var(--fs-body2);
   color: var(--neutral-2);
   text-align: center;
+}
+
+.step-up-send {
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-2);
+  color: var(--primary);
+  font-size: var(--fs-body2);
+  font-weight: 600;
 }
 </style>

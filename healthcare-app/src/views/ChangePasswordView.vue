@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import NumericKeypad from '../components/NumericKeypad.vue'
@@ -20,17 +20,57 @@ const oldPwd = ref('')
 const pwd1 = ref('')
 const pwd2 = ref('')
 const focus = ref(0)
-const maxLen = 64
 const submitting = ref(false)
 
-const fields = computed(() => (resetMode.value ? [pwd1, pwd2] : [oldPwd, pwd1, pwd2]))
+// 未设置密码时，首次设置需要当前手机号验证码
+const currentCode = ref('')
+const needsStepUpCode = ref(false)
+const stepUpDevCode = ref('')
+const stepUpSending = ref(false)
+
+const fields = computed(() =>
+  resetMode.value
+    ? [pwd1, pwd2]
+    : needsStepUpCode.value
+      ? [currentCode, pwd1, pwd2]
+      : [oldPwd, pwd1, pwd2],
+)
 
 watch(resetMode, () => {
   oldPwd.value = ''
   pwd1.value = ''
   pwd2.value = ''
+  currentCode.value = ''
+  stepUpDevCode.value = ''
   focus.value = 0
 })
+
+onMounted(async () => {
+  if (resetMode.value) return
+  try {
+    const user = await api.me()
+    needsStepUpCode.value = !user.hasPassword
+  } catch {
+    // 读取失败时保留当前密码输入框
+  }
+})
+
+async function sendStepUpCode() {
+  stepUpSending.value = true
+  try {
+    const result = await api.sendStepUpCode()
+    stepUpDevCode.value = result.devCode ?? ''
+    if (result.devCode) {
+      currentCode.value = result.devCode
+      focus.value = 1
+    }
+    toast('验证码已发送')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '验证码发送失败')
+  } finally {
+    stepUpSending.value = false
+  }
+}
 
 function currentField() {
   return fields.value[focus.value - 1]
@@ -38,7 +78,9 @@ function currentField() {
 
 function onKey(key: string) {
   const field = currentField()
-  if (field && field.value.length < maxLen) field.value += key
+  if (!field) return
+  const limit = !resetMode.value && needsStepUpCode.value && focus.value === 1 ? 6 : 64
+  if (field.value.length < limit) field.value += key
 }
 
 function onDelete() {
@@ -60,6 +102,10 @@ async function submit() {
     toast('两次输入的新密码不一致')
     return
   }
+  if (!resetMode.value && needsStepUpCode.value && !/^\d{6}$/.test(currentCode.value)) {
+    toast('请输入当前手机号验证码')
+    return
+  }
 
   submitting.value = true
   try {
@@ -75,7 +121,11 @@ async function submit() {
       toast('密码已重置，已自动登录')
       router.replace('/home')
     } else {
-      await api.changePassword(oldPwd.value, pwd1.value)
+      await api.changePassword(
+        oldPwd.value,
+        pwd1.value,
+        needsStepUpCode.value ? currentCode.value : undefined,
+      )
       toast('密码已更改 ✓')
       setTimeout(() => router.push('/settings'), 400)
     }
@@ -99,15 +149,38 @@ async function submit() {
         <span class="illus-emoji">🔑</span>
       </div>
 
-      <!-- 当前密码（首次设置密码可留空） -->
-      <div v-if="!resetMode" class="field" :class="{ focus: focus === 1 }" @click="focus = 1">
+      <!-- 已设置密码：输入当前密码 -->
+      <div
+        v-if="!resetMode && !needsStepUpCode"
+        class="field"
+        :class="{ focus: focus === 1 }"
+        @click="focus = 1"
+      >
         <span class="f-label">当前密码</span>
         <div class="f-input">
           <span class="num dots">{{ '●'.repeat(oldPwd.length) }}</span>
-          <span v-if="!oldPwd" class="f-placeholder">输入当前密码（首次可留空）</span>
+          <span v-if="!oldPwd" class="f-placeholder">输入当前密码</span>
           <span v-if="focus === 1" class="caret"></span>
         </div>
       </div>
+
+      <!-- 未设置密码：首次设置需当前手机号验证码 -->
+      <template v-if="!resetMode && needsStepUpCode">
+        <div class="field" :class="{ focus: focus === 1 }" @click="focus = 1">
+          <span class="f-label">当前手机号验证码</span>
+          <div class="f-input">
+            <span class="num dots">{{ '●'.repeat(currentCode.length) }}</span>
+            <span v-if="!currentCode" class="f-placeholder">请输入 6 位验证码</span>
+            <span v-if="focus === 1" class="caret"></span>
+          </div>
+        </div>
+        <div class="stepup-row">
+          <button class="stepup-send" :disabled="stepUpSending" @click="sendStepUpCode">
+            {{ stepUpSending ? '发送中...' : '发送验证码' }}
+          </button>
+          <span v-if="stepUpDevCode" class="stepup-dev">开发验证码：{{ stepUpDevCode }}</span>
+        </div>
+      </template>
 
       <!-- 新密码 -->
       <div
@@ -137,7 +210,9 @@ async function submit() {
         </div>
       </div>
 
-      <p v-if="!resetMode" class="tip">首次设置密码时，当前密码可以留空</p>
+      <p v-if="!resetMode" class="tip">
+        {{ needsStepUpCode ? '首次设置密码需验证当前手机号' : '修改密码后其他设备会自动退出' }}
+      </p>
       <p v-else class="tip">正在为 {{ resetPhone }} 重置密码</p>
 
       <button
@@ -243,6 +318,30 @@ async function submit() {
   font-size: var(--fs-caption);
   color: var(--neutral-2);
   text-align: center;
+}
+
+.stepup-row {
+  margin-top: 10px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stepup-send {
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-2);
+  color: var(--primary);
+  font-size: var(--fs-body2);
+  font-weight: 600;
+}
+
+.stepup-dev {
+  font-size: var(--fs-caption);
+  color: var(--primary);
 }
 
 @keyframes blink {

@@ -36,12 +36,23 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088}
       SMS_WEBHOOK_URL: ${SMS_WEBHOOK_URL:-}
       SMS_WEBHOOK_TOKEN: ${SMS_WEBHOOK_TOKEN:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:support@healthcare.example}
+      MQTT_ENABLED: ${MQTT_ENABLED:-false}
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://mqtt:1883}
+      MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-healthcare-api}
+      MQTT_USERNAME: ${MQTT_USERNAME:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_TOPIC: ${MQTT_TOPIC:-sys/+/+/thing/event/property/post}
+      MQTT_QOS: ${MQTT_QOS:-1}
       SEND_CODE_COOLDOWN_SECONDS: ${SEND_CODE_COOLDOWN_SECONDS:-60}
       SEND_CODE_MAX_PER_HOUR: ${SEND_CODE_MAX_PER_HOUR:-10}
       LOGIN_MAX_ATTEMPTS_PER_10_MIN: ${LOGIN_MAX_ATTEMPTS_PER_10_MIN:-10}
       PHONE_CHANGE_MAX_PER_HOUR: ${PHONE_CHANGE_MAX_PER_HOUR:-5}
       LOGIN_IP_MAX_PER_10_MIN: ${LOGIN_IP_MAX_PER_10_MIN:-100}
       SEND_CODE_IP_MAX_PER_HOUR: ${SEND_CODE_IP_MAX_PER_HOUR:-30}
+      STEP_UP_MAX_PER_HOUR: ${STEP_UP_MAX_PER_HOUR:-5}
     volumes:
       - uploads-data:/app/data
     depends_on:
@@ -55,6 +66,19 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
+  # 可选 MQTT broker（本地联调设备接入）：docker compose --profile iot up -d mqtt
+  mqtt:
+    image: emqx/emqx:5.8.4
+    profiles: ["iot"]
+    restart: unless-stopped
+    environment:
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ${EMQX_DASHBOARD_PASSWORD:-public}
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+      - "${MQTT_DASHBOARD_PORT:-18083}:18083"
+    volumes:
+      - mqtt-data:/opt/emqx/data
 
   web:
     build: ./healthcare-app
@@ -73,3 +97,4 @@ services:
 volumes:
   mysql-data:
   uploads-data:
+  mqtt-data:

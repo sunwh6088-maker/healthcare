@@ -1,0 +1,12 @@
+# Caddy 反向代理示例：自动申请 HTTPS 证书
+# 用法：替换域名后放到 /etc/caddy/Caddyfile，systemctl reload caddy
+health.example.com {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+    reverse_proxy 127.0.0.1:8088
+}

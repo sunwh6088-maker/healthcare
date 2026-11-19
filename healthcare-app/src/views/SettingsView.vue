@@ -1,14 +1,20 @@
 <script setup lang="ts">
 // 模块：设置页 —— 通知/隐私开关和退出登录。
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { goBack } from '../utils/navigation'
 import { health, stopRemoteSync, syncFromServer } from '../utils/healthStore'
 import { clearSession, hasSession } from '../utils/session'
+import { disablePush, enablePush, resubscribeIfEnabled, sendTestPush } from '../utils/push'
 import { toast } from '../utils/toast'
 import { api } from '../api'
 
 const router = useRouter()
+
+onMounted(() => {
+  // 之前开启过通知时，把浏览器订阅重新绑定到当前登录账号
+  void resubscribeIfEnabled().catch(() => undefined)
+})
 
 const cacheSize = computed(() => {
   const raw = localStorage.getItem('healthcare-app-state') || ''
@@ -30,19 +36,31 @@ async function clearCache() {
 
 async function toggleNotify(enabled: boolean) {
   if (enabled) {
-    if (!('Notification' in window)) {
-      toast('当前浏览器不支持系统通知')
-      return
+    try {
+      await enablePush()
+      health.notifyEnabled = true
+      toast('消息通知已开启')
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '通知开启失败')
     }
-    if (Notification.permission !== 'granted') {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        toast('浏览器已拒绝通知权限')
-        return
-      }
-    }
+    return
   }
-  health.notifyEnabled = enabled
+  try {
+    await disablePush()
+  } catch {
+    // 网络异常时仍关闭本地开关
+  }
+  health.notifyEnabled = false
+  toast('消息通知已关闭')
+}
+
+async function testNotification() {
+  try {
+    const count = await sendTestPush()
+    toast(count > 0 ? `测试通知已发送（${count} 台设备）` : '暂无可用订阅，请先重新开启通知')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '测试通知发送失败')
+  }
 }
 
 async function exportData() {
@@ -96,6 +114,10 @@ async function logout() {
           label="消息通知"
           @update:model-value="toggleNotify"
         />
+      </div>
+      <div v-if="health.notifyEnabled" class="menu-row" @click="testNotification">
+        <span class="m-label">发送测试通知</span>
+        <span class="m-arrow">›</span>
       </div>
       <div class="menu-row">
         <span class="m-label">隐私设置</span>

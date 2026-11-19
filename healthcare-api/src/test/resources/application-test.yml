@@ -24,5 +24,6 @@ app:
     phone-change-max-per-hour: 1000
     login-ip-max-per-10-min: 1000
     send-code-ip-max-per-hour: 1000
+    step-up-max-per-hour: 1000
   sms:
     webhook-url: ""

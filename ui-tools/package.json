@@ -11,6 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "aedes": "^1.2.0",
+    "mqtt": "^5.16.1",
     "pngjs": "^7.0.0",
     "puppeteer-core": "^25.17.0"
   }

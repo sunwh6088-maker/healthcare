@@ -12,12 +12,12 @@ describe('healthStore', () => {
   it('提供默认健康数据', async () => {
     const { health } = await import('./healthStore')
     expect(health.userName).toBe('健康用户')
-    expect(health.steps).toBe(4204)
+    expect(health.steps).toBe(0)
     expect(health.stepsGoal).toBe(6000)
-    expect(health.foodKcal).toBe(1284)
+    expect(health.foodKcal).toBe(0)
     expect(health.alarms).toHaveLength(2)
-    expect(health.notifyEnabled).toBe(true)
-    expect(health.deviceConnected).toBe(true)
+    expect(health.notifyEnabled).toBe(false)
+    expect(health.deviceConnected).toBe(false)
   })
 
   it('修改后写入 localStorage', async () => {
@@ -25,7 +25,7 @@ describe('healthStore', () => {
     health.foodKcal += 100
     await nextTick()
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
-    expect(saved.foodKcal).toBe(1384)
+    expect(saved.foodKcal).toBe(100)
   })
 
   it('兼容旧版本没有 repeat 字段的闹钟数据', async () => {

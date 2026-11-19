@@ -1,0 +1,36 @@
+name: Docker Build
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "healthcare-api/**"
+      - "healthcare-app/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-build.yml"
+  pull_request:
+    paths:
+      - "healthcare-api/**"
+      - "healthcare-app/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./healthcare-api
+          push: false
+
+      - name: Build Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./healthcare-app
+          push: false

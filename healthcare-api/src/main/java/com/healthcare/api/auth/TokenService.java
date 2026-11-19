@@ -63,11 +63,22 @@ public class TokenService {
                 .map(token -> new AuthDtos.SessionDto(
                         token.getId(),
                         DeviceNames.describe(token.getUserAgent()),
-                        token.getIpAddress(),
+                        displayIp(token.getIpAddress()),
                         token.getCreatedAt(),
                         token.getExpiresAt(),
                         token.getTokenHash().equals(currentHash)))
                 .toList();
+    }
+
+    /** 本机回环地址统一显示为「本机」。 */
+    private String displayIp(String ip) {
+        if (ip == null || ip.isBlank()) {
+            return null;
+        }
+        if (ip.equals("127.0.0.1") || ip.equals("::1") || ip.equals("0:0:0:0:0:0:0:1")) {
+            return "本机";
+        }
+        return ip;
     }
 
     /** 撤销指定会话；只能操作自己的会话。 */

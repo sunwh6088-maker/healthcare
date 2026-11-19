@@ -66,6 +66,22 @@ app:
     phone-change-max-per-hour: ${PHONE_CHANGE_MAX_PER_HOUR:5}
     login-ip-max-per-10-min: ${LOGIN_IP_MAX_PER_10_MIN:100}
     send-code-ip-max-per-hour: ${SEND_CODE_IP_MAX_PER_HOUR:30}
+    step-up-max-per-hour: ${STEP_UP_MAX_PER_HOUR:5}
   sms:
     webhook-url: ${SMS_WEBHOOK_URL:}
     webhook-token: ${SMS_WEBHOOK_TOKEN:}
+  # Web Push：生产环境务必配置固定 VAPID 密钥，否则重启后订阅失效
+  push:
+    public-key: ${VAPID_PUBLIC_KEY:}
+    private-key: ${VAPID_PRIVATE_KEY:}
+    subject: ${VAPID_SUBJECT:mailto:support@healthcare.example}
+  # 通用 MQTT 设备接入：可连接 EMQX / Mosquitto / 阿里云 MQTT 版
+  iot:
+    mqtt:
+      enabled: ${MQTT_ENABLED:false}
+      broker-url: ${MQTT_BROKER_URL:tcp://127.0.0.1:1883}
+      client-id: ${MQTT_CLIENT_ID:healthcare-api}
+      username: ${MQTT_USERNAME:}
+      password: ${MQTT_PASSWORD:}
+      topic: ${MQTT_TOPIC:sys/+/+/thing/event/property/post}
+      qos: ${MQTT_QOS:1}

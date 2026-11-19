@@ -49,19 +49,45 @@ const avatarImage = await fetch(base + '/me/avatar', { headers: authHeaders })
 console.log('avatar image:', avatarImage.status, avatarImage.headers.get('content-type'))
 await fetch(base + '/me/avatar', { method: 'DELETE', headers: authHeaders }).then(json)
 
-// 修改手机号需要新号码验证码
+// 修改手机号需要新号码验证码 + 当前身份凭证（无密码时为当前手机号验证码）
 const newPhone = `138${suffix}`
 const phoneCode = await fetch(base + '/me/phone/send-code', {
   method: 'POST',
   headers,
   body: JSON.stringify({ phone: newPhone }),
 }).then(json)
+const stepUp = await fetch(base + '/me/step-up/send-code', {
+  method: 'POST',
+  headers,
+}).then(json)
 const phoneUpdated = await fetch(base + '/me/phone', {
   method: 'PUT',
   headers,
-  body: JSON.stringify({ phone: newPhone, code: phoneCode.data.devCode }),
+  body: JSON.stringify({
+    phone: newPhone,
+    code: phoneCode.data.devCode,
+    currentCode: stepUp.data.devCode,
+  }),
 }).then(json)
 console.log('phone updated:', phoneUpdated.data.phone)
+
+// Web Push 公钥与订阅
+const pushKey = await fetch(base + '/push/public-key', { headers }).then(json)
+const fakeEndpoint = `https://fcm.googleapis.com/fcm/send/smoke-${suffix}`
+await fetch(base + '/push/subscribe', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    endpoint: fakeEndpoint,
+    keys: { p256dh: 'smoke-p256dh', auth: 'smoke-auth' },
+  }),
+}).then(json)
+await fetch(base + '/push/unsubscribe', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({ endpoint: fakeEndpoint }),
+}).then(json)
+console.log('push public key length:', pushKey.data.publicKey.length)
 
 // 睡眠时间写入与读取
 const state = await fetch(base + '/state', { headers }).then(json)

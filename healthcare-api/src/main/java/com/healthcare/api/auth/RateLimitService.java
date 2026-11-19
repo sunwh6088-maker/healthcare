@@ -24,6 +24,7 @@ public class RateLimitService {
     private final int phoneChangeMaxPerHour;
     private final int loginIpMaxPerTenMinutes;
     private final int sendCodeIpMaxPerHour;
+    private final int stepUpMaxPerHour;
     private final Map<String, Deque<Instant>> events = new ConcurrentHashMap<>();
 
     public RateLimitService(
@@ -32,13 +33,15 @@ public class RateLimitService {
             @Value("${app.rate-limit.login-max-attempts-per-10-min:10}") int loginMaxAttemptsPerTenMinutes,
             @Value("${app.rate-limit.phone-change-max-per-hour:5}") int phoneChangeMaxPerHour,
             @Value("${app.rate-limit.login-ip-max-per-10-min:100}") int loginIpMaxPerTenMinutes,
-            @Value("${app.rate-limit.send-code-ip-max-per-hour:30}") int sendCodeIpMaxPerHour) {
+            @Value("${app.rate-limit.send-code-ip-max-per-hour:30}") int sendCodeIpMaxPerHour,
+            @Value("${app.rate-limit.step-up-max-per-hour:5}") int stepUpMaxPerHour) {
         this.sendCodeCooldownSeconds = sendCodeCooldownSeconds;
         this.sendCodeMaxPerHour = sendCodeMaxPerHour;
         this.loginMaxAttemptsPerTenMinutes = loginMaxAttemptsPerTenMinutes;
         this.phoneChangeMaxPerHour = phoneChangeMaxPerHour;
         this.loginIpMaxPerTenMinutes = loginIpMaxPerTenMinutes;
         this.sendCodeIpMaxPerHour = sendCodeIpMaxPerHour;
+        this.stepUpMaxPerHour = stepUpMaxPerHour;
     }
 
     public void checkSendCode(String phone) {
@@ -88,6 +91,19 @@ public class RateLimitService {
         events.compute("send-code-ip:" + ip, (key, queue) -> {
             Deque<Instant> recent = purge(queue, now.minus(Duration.ofHours(1)));
             if (recent.size() >= sendCodeIpMaxPerHour) {
+                throw new ApiException(429, "验证码发送过于频繁，请稍后再试");
+            }
+            recent.addLast(now);
+            return recent;
+        });
+    }
+
+    /** 敏感操作（改手机号/注销/首次设密码）前的当前手机号验证码发送上限。 */
+    public void checkStepUpSendCode(Long userId) {
+        Instant now = Instant.now();
+        events.compute("step-up:" + userId, (key, queue) -> {
+            Deque<Instant> recent = purge(queue, now.minus(Duration.ofHours(1)));
+            if (recent.size() >= stepUpMaxPerHour) {
                 throw new ApiException(429, "验证码发送过于频繁，请稍后再试");
             }
             recent.addLast(now);

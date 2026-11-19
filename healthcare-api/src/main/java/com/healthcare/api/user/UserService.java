@@ -1,6 +1,7 @@
 package com.healthcare.api.user;
 
 import com.healthcare.api.auth.RateLimitService;
+import com.healthcare.api.auth.StepUpService;
 import com.healthcare.api.auth.VerificationCodeService;
 import com.healthcare.api.common.ApiException;
 import com.healthcare.api.common.PhoneNumbers;
@@ -27,6 +28,7 @@ public class UserService {
     private final RateLimitService rateLimits;
     private final SmsSender smsSender;
     private final AvatarService avatars;
+    private final StepUpService stepUp;
     private final boolean devMode;
 
     public UserService(UserRepository users,
@@ -35,6 +37,7 @@ public class UserService {
                        RateLimitService rateLimits,
                        SmsSender smsSender,
                        AvatarService avatars,
+                       StepUpService stepUp,
                        @Value("${app.dev-mode:true}") boolean devMode) {
         this.users = users;
         this.jdbc = jdbc;
@@ -42,6 +45,7 @@ public class UserService {
         this.rateLimits = rateLimits;
         this.smsSender = smsSender;
         this.avatars = avatars;
+        this.stepUp = stepUp;
         this.devMode = devMode;
     }
 
@@ -89,18 +93,19 @@ public class UserService {
         return null;
     }
 
-    /** 修改手机号第 2 步：验证新号码收到的验证码后完成绑定。 */
+    /** 修改手机号第 2 步：校验当前身份凭证和新号码验证码后完成绑定。 */
     @Transactional
-    public UserDto updatePhone(Long userId, String rawPhone, String code) {
+    public UserDto updatePhone(Long userId, UserDto.PhoneUpdateRequest request) {
         User user = get(userId);
-        String phone = PhoneNumbers.normalizeAndValidate(rawPhone);
+        String phone = PhoneNumbers.normalizeAndValidate(request.phone());
         if (phone.equals(user.getPhone())) {
             throw new ApiException(400, "新手机号与当前手机号相同");
         }
         if (users.existsByPhoneAndIdNot(phone, userId)) {
             throw new ApiException(400, "该手机号已被其他账号使用");
         }
-        if (!codes.verify(phone, code, VerificationCodeService.PURPOSE_CHANGE_PHONE)) {
+        stepUp.requireCredential(user, request.currentPassword(), request.currentCode());
+        if (!codes.verify(phone, request.code(), VerificationCodeService.PURPOSE_CHANGE_PHONE)) {
             throw new ApiException(400, "验证码错误或已过期");
         }
         user.setPhone(phone);
@@ -128,13 +133,20 @@ public class UserService {
     }
 
     /**
-     * 注销账号：删除该用户的登录凭证、健康数据、闹钟、食物和运动记录。
+     * 注销账号：先校验当前密码/验证码，再删除登录凭证、健康数据、闹钟、食物和运动记录。
      */
     @Transactional
-    public void deleteAccount(Long userId) {
-        get(userId);
+    public void deleteAccount(Long userId, UserDto.StepUpRequest request) {
+        User user = get(userId);
+        stepUp.requireCredential(user, request.password(), request.code());
         avatars.delete(userId);
         jdbc.update("DELETE FROM auth_tokens WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM push_subscriptions WHERE user_id = ?", userId);
+        jdbc.update(
+                "DELETE FROM iot_device_events WHERE device_id IN "
+                        + "(SELECT id FROM iot_devices WHERE user_id = ?)",
+                userId);
+        jdbc.update("DELETE FROM iot_devices WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM alarms WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM food_logs WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM exercise_logs WHERE user_id = ?", userId);

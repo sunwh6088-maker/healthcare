@@ -67,6 +67,26 @@ export interface LoginSession {
   current: boolean
 }
 
+export interface PushKeys {
+  p256dh: string
+  auth: string
+}
+
+export interface PushSubscriptionPayload {
+  endpoint: string
+  keys: PushKeys
+}
+
+export interface IotDevice {
+  id: number
+  productKey: string
+  deviceName: string
+  name: string
+  connected: boolean
+  battery: number
+  lastSeenAt: string | null
+}
+
 export interface SendCodeResponse {
   message: string
   devCode?: string
@@ -201,10 +221,14 @@ export const api = {
     })
   },
 
-  changePassword(oldPassword: string, newPassword: string) {
+  changePassword(oldPassword: string, newPassword: string, currentCode?: string) {
     return request<void>('/me/password', {
       method: 'PUT',
-      body: JSON.stringify({ oldPassword: oldPassword || null, newPassword }),
+      body: JSON.stringify({
+        oldPassword: oldPassword || null,
+        currentCode: currentCode || null,
+        newPassword,
+      }),
     })
   },
 
@@ -232,11 +256,21 @@ export const api = {
     })
   },
 
-  updatePhone(phone: string, code: string) {
+  updatePhone(phone: string, code: string, currentPassword?: string, currentCode?: string) {
     return request<User>('/me/phone', {
       method: 'PUT',
-      body: JSON.stringify({ phone, code }),
+      body: JSON.stringify({
+        phone,
+        code,
+        currentPassword: currentPassword || null,
+        currentCode: currentCode || null,
+      }),
     })
+  },
+
+  // 敏感操作前向当前手机号发送验证码
+  sendStepUpCode() {
+    return request<PhoneCodeResponse>('/me/step-up/send-code', { method: 'POST' })
   },
 
   uploadAvatar(file: File) {
@@ -249,8 +283,11 @@ export const api = {
     return request<User>('/me/avatar', { method: 'DELETE' })
   },
 
-  deleteMe() {
-    return request<void>('/me', { method: 'DELETE' })
+  deleteMe(payload: { password?: string; code?: string } = {}) {
+    return request<void>('/me', {
+      method: 'DELETE',
+      body: JSON.stringify(payload),
+    })
   },
 
   // 登录设备
@@ -264,6 +301,49 @@ export const api = {
 
   revokeOtherSessions() {
     return request<void>('/me/sessions', { method: 'DELETE' })
+  },
+
+  // Web Push
+  getPushPublicKey() {
+    return request<{ publicKey: string }>('/push/public-key')
+  },
+
+  subscribePush(payload: PushSubscriptionPayload) {
+    return request<void>('/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  unsubscribePush(endpoint: string) {
+    return request<void>('/push/unsubscribe', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint }),
+    })
+  },
+
+  sendTestPush() {
+    return request<number>('/push/test', { method: 'POST' })
+  },
+
+  // IoT 设备
+  listIotDevices() {
+    return request<IotDevice[]>('/iot/devices')
+  },
+
+  bindIotDevice(payload: { productKey: string; deviceName: string; name?: string }) {
+    return request<IotDevice>('/iot/devices', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  unbindIotDevice(id: number) {
+    return request<void>(`/iot/devices/${id}`, { method: 'DELETE' })
+  },
+
+  simulateIotDevice(id: number) {
+    return request<IotDevice>(`/iot/devices/${id}/simulate`, { method: 'POST' })
   },
 
   /** 导出账号、健康状态、食物与运动记录（JSON）。 */

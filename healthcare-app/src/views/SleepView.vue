@@ -12,13 +12,18 @@ import { isReasonableSleep, minutesToTime, sleepDuration, timeToMinutes } from '
 const router = useRouter()
 
 const sleepText = computed(() => {
+  if (health.sleepMinutes <= 0) return '暂无记录'
   const h = Math.floor(health.sleepMinutes / 60)
   const m = health.sleepMinutes % 60
   return `${h}小时${m}分`
 })
 
-const bedTime = computed(() => minutesToTime(health.sleepStartMinutes))
-const wakeTime = computed(() => minutesToTime(health.sleepStartMinutes + health.sleepMinutes))
+const bedTime = computed(() =>
+  health.sleepMinutes > 0 ? minutesToTime(health.sleepStartMinutes) : '--:--',
+)
+const wakeTime = computed(() =>
+  health.sleepMinutes > 0 ? minutesToTime(health.sleepStartMinutes + health.sleepMinutes) : '--:--',
+)
 
 // 睡眠时间编辑
 const sleepSheetOpen = ref(false)
@@ -34,8 +39,10 @@ const previewSleep = computed(() => {
 })
 
 function openSleepEdit() {
-  editBed.value = bedTime.value
-  editWake.value = wakeTime.value
+  editBed.value = minutesToTime(health.sleepStartMinutes)
+  editWake.value = minutesToTime(
+    health.sleepStartMinutes + (health.sleepMinutes > 0 ? health.sleepMinutes : 8 * 60),
+  )
   sleepSheetOpen.value = true
 }
 

@@ -41,6 +41,8 @@ public final class AuthDtos {
 
     public record ChangePasswordRequest(
             @Size(max = 64, message = "当前密码过长") String oldPassword,
+            /** 未设置密码时，用当前手机号验证码完成首次设置。 */
+            String currentCode,
             @NotBlank(message = "新密码不能为空")
             @Pattern(regexp = PASSWORD_PATTERN, message = PASSWORD_MESSAGE) String newPassword) {
     }

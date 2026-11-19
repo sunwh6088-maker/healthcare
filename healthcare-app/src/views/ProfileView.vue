@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { health } from '../utils/healthStore'
 import { api } from '../api'
+import { compressAvatar } from '../utils/image'
 import { toast } from '../utils/toast'
 
 const router = useRouter()
@@ -43,13 +44,22 @@ async function onAvatarChange(event: Event) {
     toast('仅支持 JPG、PNG 或 WebP 图片')
     return
   }
-  if (file.size > 2 * 1024 * 1024) {
-    toast('头像不能超过 2MB')
+  if (file.size > 10 * 1024 * 1024) {
+    toast('图片不能超过 10MB')
     return
   }
   uploading.value = true
   try {
-    const user = await api.uploadAvatar(file)
+    const prepared = await compressAvatar(file)
+    if (prepared.size > 2 * 1024 * 1024) {
+      toast('图片压缩后仍超过 2MB，请更换图片')
+      return
+    }
+    const uploadFile =
+      prepared instanceof File
+        ? prepared
+        : new File([prepared], 'avatar.jpg', { type: prepared.type || 'image/jpeg' })
+    const user = await api.uploadAvatar(uploadFile)
     health.avatarUrl = user.avatarUrl
     toast('头像已更新 ✓')
   } catch (error) {

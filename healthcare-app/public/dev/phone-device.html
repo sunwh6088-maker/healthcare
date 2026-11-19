@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>手机设备模拟器</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 20px 18px 40px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #f6f8f7;
+        color: #1f2d27;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 6px;
+        color: #2a6049;
+      }
+      p.tip {
+        font-size: 13px;
+        color: #66756e;
+        margin: 0 0 14px;
+        line-height: 1.6;
+      }
+      a {
+        color: #2a6049;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: #66756e;
+        margin-top: 12px;
+      }
+      input,
+      select {
+        width: 100%;
+        margin-top: 6px;
+        padding: 11px 12px;
+        border: 1px solid #dfe7e3;
+        border-radius: 10px;
+        font-size: 16px;
+        background: #fff;
+        color: #1f2d27;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px 12px;
+      }
+      button {
+        width: 100%;
+        margin-top: 20px;
+        padding: 14px;
+        border: none;
+        border-radius: 999px;
+        background: #2a6049;
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.6;
+      }
+      pre {
+        margin-top: 16px;
+        padding: 12px;
+        background: #0f1a15;
+        color: #d7e8df;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-all;
+        min-height: 64px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>手机设备模拟器</h1>
+    <p class="tip">
+      选择 App 里已绑定的设备，填写数据后发送；数据会写入同一个数据库，回到
+      <a href="/">App</a> 刷新即可看到。
+    </p>
+    <p class="tip">真实设备仍通过 MQTT 上报，这个页面只是开发演示工具。</p>
+
+    <label>
+      已绑定设备
+      <select id="device">
+        <option value="">加载中…</option>
+      </select>
+    </label>
+
+    <div class="grid">
+      <label>步数 <input id="steps" type="number" value="6800" /></label>
+      <label>饮水 ml <input id="waterMl" type="number" value="1500" /></label>
+      <label>睡眠分钟 <input id="sleepMinutes" type="number" value="460" /></label>
+      <label>体重 kg <input id="weightKg" type="number" step="0.1" value="62.5" /></label>
+      <label>电量 % <input id="battery" type="number" value="86" /></label>
+    </div>
+
+    <button id="send">发送设备数据</button>
+    <pre id="log">等待发送…</pre>
+
+    <script>
+      const $ = (id) => document.getElementById(id)
+      const logEl = $('log')
+
+      function log(message) {
+        const time = new Date().toLocaleTimeString()
+        logEl.textContent =
+          `[${time}] ${message}\n` + logEl.textContent.split('\n').slice(0, 8).join('\n')
+      }
+
+      async function loadDevices() {
+        try {
+          const response = await fetch('/api/iot/devices', { credentials: 'include' })
+          if (response.status === 401) {
+            $('device').innerHTML = '<option value="">请先登录 App</option>'
+            log('未登录：请先在 App 登录，再刷新本页')
+            return
+          }
+          const body = await response.json()
+          const devices = body.data || []
+          if (!devices.length) {
+            $('device').innerHTML = '<option value="">暂无已绑定设备</option>'
+            log('还没有绑定设备：请回到 App → 设备 → 绑定 pk-phone / phone-001')
+            return
+          }
+          $('device').innerHTML = devices
+            .map(
+              (d) =>
+                `<option value="${d.id}">${d.name}（${d.productKey}/${d.deviceName}）</option>`,
+            )
+            .join('')
+          log(`已加载 ${devices.length} 台设备`)
+        } catch (error) {
+          log('加载设备失败：' + error.message)
+        }
+      }
+
+      $('send').addEventListener('click', async () => {
+        const deviceId = $('device').value
+        if (!deviceId) {
+          log('请先在 App 里绑定设备并刷新本页')
+          return
+        }
+        const payload = {
+          steps: Number($('steps').value),
+          waterMl: Number($('waterMl').value),
+          sleepMinutes: Number($('sleepMinutes').value),
+          weightKg: Number($('weightKg').value),
+          battery: Number($('battery').value),
+        }
+        $('send').disabled = true
+        log('正在发送到本地后端…')
+        try {
+          const response = await fetch(`/api/iot/devices/${deviceId}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          })
+          const body = await response.json()
+          if (!response.ok) {
+            log('发送失败：' + (body.msg || response.status))
+          } else {
+            log('发送成功，回到 App 刷新即可看到新数据')
+          }
+        } catch (error) {
+          log('发送失败：' + error.message)
+        } finally {
+          $('send').disabled = false
+        }
+      })
+
+      loadDevices()
+    </script>
+  </body>
+</html>

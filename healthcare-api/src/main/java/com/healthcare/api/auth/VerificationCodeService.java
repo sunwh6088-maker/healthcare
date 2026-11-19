@@ -16,6 +16,7 @@ public class VerificationCodeService {
 
     public static final String PURPOSE_LOGIN = "login";
     public static final String PURPOSE_CHANGE_PHONE = "change-phone";
+    public static final String PURPOSE_STEP_UP = "step-up";
 
     private static final int TTL_SECONDS = 300;
     private static final int MAX_ATTEMPTS = 5;
