@@ -33,4 +33,13 @@ public final class HealthImportDtos {
 
     public record TokenStatus(boolean hasToken) {
     }
+
+    public record MetricDto(
+            LocalDate date,
+            int steps,
+            int sleepMinutes,
+            int activeMinutes,
+            Double weightKg,
+            Integer battery) {
+    }
 }

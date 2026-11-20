@@ -21,6 +21,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 
 /**
  * 外部健康数据导入：生成导入令牌、校验令牌、写入每日汇总与当前状态。
@@ -65,6 +66,31 @@ public class HealthImportService {
                 .map(user -> user.getImportTokenHash() != null
                         && !user.getImportTokenHash().isBlank())
                 .orElse(false);
+    }
+
+    /** 查询区间内的每日指标，默认最近 7 天（含今天）。 */
+    public List<HealthImportDtos.MetricDto> listMetrics(
+            Long userId, String fromValue, String toValue) {
+        LocalDate to = parseDate(toValue);
+        LocalDate from = fromValue == null || fromValue.isBlank()
+                ? to.minusDays(6)
+                : parseDate(fromValue);
+        if (from.isAfter(to)) {
+            throw new ApiException(400, "开始日期不能晚于结束日期");
+        }
+        if (from.plusDays(366).isBefore(to)) {
+            throw new ApiException(400, "查询区间不能超过一年");
+        }
+        return metrics.findByUserIdAndMetricDateBetweenOrderByMetricDateAsc(userId, from, to)
+                .stream()
+                .map(metric -> new HealthImportDtos.MetricDto(
+                        metric.getMetricDate(),
+                        metric.getSteps(),
+                        metric.getSleepMinutes(),
+                        metric.getActiveMinutes(),
+                        metric.getWeightKg(),
+                        metric.getPhoneBattery()))
+                .toList();
     }
 
     @Transactional

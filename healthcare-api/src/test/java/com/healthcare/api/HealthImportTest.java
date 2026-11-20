@@ -101,6 +101,32 @@ class HealthImportTest {
                 new HttpEntity<>(Map.of("steps", 1)),
                 Map.class);
         assertThat(missing.getStatusCode().value()).isEqualTo(401);
+
+        // 每日指标可按区间查询（历史页/步骤页使用）
+        ResponseEntity<Map> metricResponse = rest.exchange(
+                base + "/api/health-metrics?from=" + today + "&to=" + today,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class);
+        assertThat(metricResponse.getStatusCode().value()).isEqualTo(200);
+        java.util.List<Map<String, Object>> metrics =
+                (java.util.List<Map<String, Object>>) metricResponse.getBody().get("data");
+        assertThat(metrics).hasSize(1);
+        assertThat(metrics.get(0).get("date")).isEqualTo(today);
+        assertThat(metrics.get(0).get("steps")).isEqualTo(8888);
+        assertThat(metrics.get(0).get("sleepMinutes")).isEqualTo(480);
+        assertThat(metrics.get(0).get("battery")).isEqualTo(77);
+
+        // 非法区间返回 400；未登录返回 401
+        ResponseEntity<Map> badRange = rest.exchange(
+                base + "/api/health-metrics?from=" + today + "&to=2020-01-01",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class);
+        assertThat(badRange.getStatusCode().value()).isEqualTo(400);
+        ResponseEntity<Map> unauthenticated = rest.getForEntity(
+                base + "/api/health-metrics", Map.class);
+        assertThat(unauthenticated.getStatusCode().value()).isEqualTo(401);
     }
 
     private HttpHeaders login(String base, String phone) {

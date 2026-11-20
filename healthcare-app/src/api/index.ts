@@ -87,6 +87,15 @@ export interface IotDevice {
   lastSeenAt: string | null
 }
 
+export interface HealthMetric {
+  date: string
+  steps: number
+  sleepMinutes: number
+  activeMinutes: number
+  weightKg: number | null
+  battery: number | null
+}
+
 export interface SendCodeResponse {
   message: string
   devCode?: string
@@ -333,6 +342,10 @@ export const api = {
 
   generateImportToken() {
     return request<{ token: string }>('/me/import-token', { method: 'POST' })
+  },
+
+  listHealthMetrics(from: string, to: string) {
+    return request<HealthMetric[]>(`/health-metrics?from=${from}&to=${to}`)
   },
 
   // IoT 设备
