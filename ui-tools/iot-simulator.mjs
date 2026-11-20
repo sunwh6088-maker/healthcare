@@ -5,6 +5,10 @@ import mqtt from 'mqtt'
 const productKey = process.argv[2]
 const deviceName = process.argv[3]
 const broker = process.argv[4] || process.env.MQTT_BROKER_URL || 'mqtt://127.0.0.1:1883'
+// broker 开启认证时通过环境变量传入（例如 EMQX 的 healthcare 用户）
+const auth = process.env.MQTT_USERNAME
+  ? { username: process.env.MQTT_USERNAME, password: process.env.MQTT_PASSWORD || '' }
+  : {}
 
 if (!productKey || !deviceName) {
   console.error('用法：node iot-simulator.mjs <productKey> <deviceName> [brokerUrl]')
@@ -25,7 +29,7 @@ const payload = JSON.stringify({
   },
 })
 
-const client = mqtt.connect(broker)
+const client = mqtt.connect(broker, auth)
 client.on('connect', () => {
   client.publish(topic, payload, { qos: 1 }, (error) => {
     if (error) {

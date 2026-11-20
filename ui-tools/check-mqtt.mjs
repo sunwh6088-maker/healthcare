@@ -3,6 +3,10 @@ import mqtt from 'mqtt'
 
 const API = process.env.API_BASE || 'http://localhost:8081/api'
 const BROKER = process.env.MQTT_BROKER_URL || 'mqtt://127.0.0.1:1883'
+// broker 开启认证时通过环境变量传入（例如 EMQX 的 healthcare 用户）
+const auth = process.env.MQTT_USERNAME
+  ? { username: process.env.MQTT_USERNAME, password: process.env.MQTT_PASSWORD || '' }
+  : {}
 const suffix = String(Date.now()).slice(-8)
 const phone = `134${suffix}`
 const productKey = `pk-mqtt-${suffix}`
@@ -37,7 +41,7 @@ const payload = JSON.stringify({
 })
 
 await new Promise((resolve, reject) => {
-  const client = mqtt.connect(BROKER)
+  const client = mqtt.connect(BROKER, auth)
   client.on('connect', () => {
     client.publish(topic, payload, { qos: 1 }, (error) => {
       client.end()
