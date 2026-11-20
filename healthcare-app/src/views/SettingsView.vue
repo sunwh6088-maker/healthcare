@@ -141,6 +141,10 @@ async function logout() {
     </div>
 
     <div class="menu card mt-16">
+      <div class="menu-row" @click="router.push('/health-import')">
+        <span class="m-label">iPhone 健康数据导入</span>
+        <span class="m-arrow">›</span>
+      </div>
       <div class="menu-row" @click="exportData">
         <span class="m-label">导出我的数据</span>
         <span class="m-value">JSON</span>

@@ -38,7 +38,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .order(0);
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**")
+                .excludePathPatterns("/api/auth/**", "/api/import/**")
                 .order(1);
     }
 

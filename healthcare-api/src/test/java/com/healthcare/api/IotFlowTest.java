@@ -55,6 +55,16 @@ class IotFlowTest {
                 base + "/api/iot/devices", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         assertThat((List<?>) listed.getBody().get("data")).hasSize(1);
 
+        // 修改设备显示名称
+        ResponseEntity<Map> renamed = rest.exchange(
+                base + "/api/iot/devices/" + deviceId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("name", "改名后的手表"), headers),
+                Map.class);
+        assertThat(renamed.getStatusCode().value()).isEqualTo(200);
+        assertThat(((Map<?, ?>) renamed.getBody().get("data")).get("name"))
+                .isEqualTo("改名后的手表");
+
         // 模拟上报后健康数据更新
         ResponseEntity<Map> simulated = rest.exchange(
                 base + "/api/iot/devices/" + deviceId + "/simulate",
@@ -136,6 +146,16 @@ class IotFlowTest {
         ResponseEntity<Map> afterUnbind = rest.exchange(
                 base + "/api/iot/devices", HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         assertThat((List<?>) afterUnbind.getBody().get("data")).isEmpty();
+
+        // 解绑后同一账号可以重新绑定
+        ResponseEntity<Map> rebound = rest.exchange(
+                base + "/api/iot/devices",
+                HttpMethod.POST,
+                new HttpEntity<>(
+                        Map.of("productKey", productKey, "deviceName", "watch-1", "name", "重新绑定"),
+                        headers),
+                Map.class);
+        assertThat(rebound.getStatusCode().value()).isEqualTo(200);
     }
 
     private HttpHeaders login(String phone) {

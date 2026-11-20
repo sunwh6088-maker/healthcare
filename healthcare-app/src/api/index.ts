@@ -326,6 +326,15 @@ export const api = {
     return request<number>('/push/test', { method: 'POST' })
   },
 
+  // iPhone 快捷指令导入
+  getImportTokenStatus() {
+    return request<{ hasToken: boolean }>('/me/import-token')
+  },
+
+  generateImportToken() {
+    return request<{ token: string }>('/me/import-token', { method: 'POST' })
+  },
+
   // IoT 设备
   listIotDevices() {
     return request<IotDevice[]>('/iot/devices')
@@ -335,6 +344,13 @@ export const api = {
     return request<IotDevice>('/iot/devices', {
       method: 'POST',
       body: JSON.stringify(payload),
+    })
+  },
+
+  renameIotDevice(id: number, name: string) {
+    return request<IotDevice>(`/iot/devices/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
     })
   },
 

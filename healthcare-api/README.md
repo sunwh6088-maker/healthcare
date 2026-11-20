@@ -178,6 +178,63 @@ java -jar target/healthcare-api-0.0.1-SNAPSHOT.jar
 
 运动类型：`yoga` / `walk` / `run` / `ride`。
 
+### 账号安全与通知（需要 token）
+
+| 方法   | 路径                     | 说明                                       |
+| ------ | ------------------------ | ------------------------------------------ |
+| POST   | `/api/me/phone/send-code` | 向新手机号发送验证码，用于改绑             |
+| PUT    | `/api/me/phone`           | `{ "phone": "…", "code": "…" }` 完成改绑   |
+| GET    | `/api/me/avatar`          | 获取头像（`has_avatar` 为 false 时 404）   |
+| POST   | `/api/me/avatar`          | multipart 上传头像（JPG/PNG/WebP ≤2MB）    |
+| DELETE | `/api/me/avatar`          | 删除头像                                   |
+| GET    | `/api/me/export`          | 导出当前账号全部数据（JSON）               |
+| GET    | `/api/me/sessions`        | 登录设备列表（当前/其他设备、IP、时间）    |
+| DELETE | `/api/me/sessions/{id}`   | 退出指定设备                               |
+| DELETE | `/api/me/sessions`        | 退出其他所有设备                           |
+| POST   | `/api/me/step-up/send-code` | 敏感操作（改手机号/注销/首次设密码）验证码 |
+| GET    | `/api/push/public-key`    | Web Push VAPID 公钥                        |
+| POST   | `/api/push/subscribe`     | 保存推送订阅                               |
+| POST   | `/api/push/unsubscribe`   | 取消推送订阅                               |
+| POST   | `/api/push/test`          | 发送测试通知                               |
+
+### IoT 设备（需要 token）
+
+| 方法   | 路径                              | 说明                                     |
+| ------ | --------------------------------- | ---------------------------------------- |
+| GET    | `/api/iot/devices`                | 已绑定设备列表（在线状态、电量、最后上报） |
+| POST   | `/api/iot/devices`                | 绑定设备 `{ productKey, deviceName, name }` |
+| PATCH  | `/api/iot/devices/{id}`           | 修改显示名称 `{ "name": "…" }`            |
+| DELETE | `/api/iot/devices/{id}`           | 解绑设备                                 |
+| POST   | `/api/iot/devices/{id}/simulate`  | 开发环境模拟上报（`APP_DEV_MODE=true` 时可用） |
+| POST   | `/api/iot/devices/{id}/report`    | 开发环境指定数据上报（供手机联调页使用）  |
+
+MQTT 接入见根目录 `DEPLOY.md` 第 6 节：设备上报 `sys/{productKey}/{deviceName}/thing/event/property/post`，兼容 Alink 物模型。
+
+### iPhone 快捷指令导入
+
+网页无法直接读取 iPhone 健康数据，可通过导入令牌让「快捷指令」把步数/睡眠/活动/体重/电量 POST 到后端。
+
+| 方法 | 路径                    | 认证        | 说明                                      |
+| ---- | ----------------------- | ----------- | ----------------------------------------- |
+| GET  | `/api/me/import-token`  | 登录 Cookie | 查询是否已生成导入令牌                    |
+| POST | `/api/me/import-token`  | 登录 Cookie | 生成/轮换导入令牌，明文只在本次响应返回   |
+| POST | `/api/import/health`    | 导入令牌    | 上报每日数据，见下方请求体                |
+
+`POST /api/import/health` 请求头带 `X-Import-Token: <token>`（或 `Authorization: Bearer <token>`），请求体：
+
+```json
+{
+  "date": "2026-11-20",
+  "steps": 8888,
+  "sleepMinutes": 480,
+  "activeMinutes": 45,
+  "weightKg": 63.2,
+  "battery": 77
+}
+```
+
+`date` 缺省为今天（Asia/Shanghai），其余字段至少提供一项；数据写入 `daily_health_metrics`（按用户+日期 upsert）并同步当前 `health_states`。令牌只存 SHA-256，重新生成会使旧令牌立即失效；每用户每小时最多 120 次导入。
+
 ## 安全说明
 
 - 登录 token 为 32 字节随机值，数据库只保存 SHA-256 哈希，默认 7 天过期；退出登录会删除对应 token。
@@ -186,7 +243,9 @@ java -jar target/healthcare-api-0.0.1-SNAPSHOT.jar
 - 验证码为 6 位随机值，5 分钟有效，连续输错 5 次即失效；开发模式下接口返回 `devCode` 便于联调。
 - 验证码发送和登录尝试都有限流；生产环境关闭 `APP_DEV_MODE` 后，验证码通过 `SMS_WEBHOOK_URL` 交给短信网关发送。
 - CORS 使用 `CORS_ALLOWED_ORIGINS` 白名单，并允许携带 Cookie；不要把生产环境配成 `*`。
-- 修改手机号暂未要求二次验证；生产环境建议增加原/新手机号验证。
+- 修改手机号、注销账号、首次设置密码属于敏感操作，需要当前密码或当前手机号验证码二次验证（`/api/me/step-up/send-code`）。
+- 外部导入使用独立的导入令牌（只存 SHA-256），与登录会话隔离，可随时重新生成使旧令牌失效。
+- 写接口校验 `Origin`/`Referer`，CSRF 风险由 SameSite Cookie 与来源校验共同防护。
 
 ## 测试
 

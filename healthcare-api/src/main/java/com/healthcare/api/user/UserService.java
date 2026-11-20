@@ -141,6 +141,7 @@ public class UserService {
         stepUp.requireCredential(user, request.password(), request.code());
         avatars.delete(userId);
         jdbc.update("DELETE FROM auth_tokens WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM daily_health_metrics WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM push_subscriptions WHERE user_id = ?", userId);
         jdbc.update(
                 "DELETE FROM iot_device_events WHERE device_id IN "

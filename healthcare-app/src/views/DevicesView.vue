@@ -12,8 +12,16 @@ const loading = ref(true)
 const bindOpen = ref(false)
 const saving = ref(false)
 const busyId = ref<number | null>(null)
-const confirmUnbindId = ref<number | null>(null)
 const form = ref({ productKey: '', deviceName: '', name: '' })
+
+const renameOpen = ref(false)
+const renameDevice = ref<IotDevice | null>(null)
+const renameValue = ref('')
+const renameSaving = ref(false)
+
+const unbindOpen = ref(false)
+const unbindDevice = ref<IotDevice | null>(null)
+const unbinding = ref(false)
 
 const primaryDevice = computed(
   () => catalog.devices.find((device) => device.primary) ?? catalog.devices[0],
@@ -87,22 +95,51 @@ async function simulate(device: IotDevice) {
   }
 }
 
-async function unbind(device: IotDevice) {
-  if (confirmUnbindId.value !== device.id) {
-    confirmUnbindId.value = device.id
-    toast('再次点击即可解绑设备')
+function openRename(device: IotDevice) {
+  renameDevice.value = device
+  renameValue.value = device.name
+  renameOpen.value = true
+}
+
+async function saveRename() {
+  const name = renameValue.value.trim()
+  if (!name) {
+    toast('请输入设备名称')
     return
   }
-  busyId.value = device.id
+  if (!renameDevice.value) return
+  renameSaving.value = true
+  try {
+    const updated = await api.renameIotDevice(renameDevice.value.id, name)
+    boundDevices.value = boundDevices.value.map((item) => (item.id === updated.id ? updated : item))
+    renameOpen.value = false
+    toast('设备名称已更新 ✓')
+  } catch (error) {
+    toast(error instanceof Error ? error.message : '修改名称失败')
+  } finally {
+    renameSaving.value = false
+  }
+}
+
+function openUnbind(device: IotDevice) {
+  unbindDevice.value = device
+  unbindOpen.value = true
+}
+
+async function confirmUnbind() {
+  const device = unbindDevice.value
+  if (!device) return
+  unbinding.value = true
   try {
     await api.unbindIotDevice(device.id)
-    confirmUnbindId.value = null
+    unbindOpen.value = false
+    unbindDevice.value = null
     await loadDevices()
     toast('设备已解绑')
   } catch (error) {
     toast(error instanceof Error ? error.message : '解绑失败')
   } finally {
-    busyId.value = null
+    unbinding.value = false
   }
 }
 
@@ -128,7 +165,10 @@ onMounted(() => {
       <div v-for="device in boundDevices" :key="device.id" class="bound-card card">
         <span class="b-icon">⌚</span>
         <div class="b-info">
-          <h3>{{ device.name }}</h3>
+          <div class="b-title">
+            <h3>{{ device.name }}</h3>
+            <button class="b-edit" @click="openRename(device)">修改名称</button>
+          </div>
           <p class="b-key">{{ device.productKey }} / {{ device.deviceName }}</p>
           <p class="b-meta">
             {{ device.connected ? '在线' : '离线' }}
@@ -145,8 +185,8 @@ onMounted(() => {
           >
             {{ busyId === device.id ? '上报中' : '模拟上报' }}
           </button>
-          <button class="b-del" :disabled="busyId === device.id" @click="unbind(device)">
-            {{ confirmUnbindId === device.id ? '确认解绑' : '解绑' }}
+          <button class="b-del" :disabled="busyId === device.id" @click="openUnbind(device)">
+            解绑
           </button>
         </div>
       </div>
@@ -204,6 +244,44 @@ onMounted(() => {
         </button>
       </div>
     </BottomSheet>
+
+    <BottomSheet :open="renameOpen" @close="renameOpen = false">
+      <h3 class="sheet-title">修改设备名称</h3>
+      <label class="sheet-field">
+        <span class="sheet-key">显示名称</span>
+        <input
+          v-model="renameValue"
+          class="sheet-input"
+          maxlength="64"
+          placeholder="例如 我的手表"
+        />
+      </label>
+      <div class="sheet-actions">
+        <button
+          class="btn-primary"
+          :class="{ disabled: renameSaving }"
+          :disabled="renameSaving"
+          @click="saveRename"
+        >
+          {{ renameSaving ? '保存中...' : '保存' }}
+        </button>
+      </div>
+    </BottomSheet>
+
+    <BottomSheet :open="unbindOpen" @close="unbindOpen = false">
+      <h3 class="sheet-title">解除绑定</h3>
+      <p class="add-tip">
+        确定要解绑「{{
+          unbindDevice?.name
+        }}」吗？解绑后该设备的数据将不再写入你的账号，之后可以重新绑定。
+      </p>
+      <div class="sheet-actions">
+        <button class="sheet-delete" :disabled="unbinding" @click="confirmUnbind">
+          {{ unbinding ? '解绑中...' : '确认解绑' }}
+        </button>
+        <button class="btn-primary" @click="unbindOpen = false">取消</button>
+      </div>
+    </BottomSheet>
   </div>
 </template>
 
@@ -253,9 +331,22 @@ onMounted(() => {
   min-width: 0;
 }
 
+.b-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .b-info h3 {
   font-size: var(--fs-headline3);
   font-weight: 700;
+}
+
+.b-edit {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .b-key {

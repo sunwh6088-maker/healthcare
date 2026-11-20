@@ -50,4 +50,9 @@ public final class IotDtos {
             Double weightKg,
             Integer battery) {
     }
+
+    public record RenameRequest(
+            @NotBlank(message = "设备名称不能为空")
+            @Size(max = 64, message = "设备名称过长") String name) {
+    }
 }

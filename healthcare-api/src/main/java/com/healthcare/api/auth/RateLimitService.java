@@ -98,6 +98,19 @@ public class RateLimitService {
         });
     }
 
+    /** 外部健康数据导入的每小时上限。 */
+    public void checkHealthImport(Long userId) {
+        Instant now = Instant.now();
+        events.compute("health-import:" + userId, (key, queue) -> {
+            Deque<Instant> recent = purge(queue, now.minus(Duration.ofHours(1)));
+            if (recent.size() >= 120) {
+                throw new ApiException(429, "导入过于频繁，请稍后再试");
+            }
+            recent.addLast(now);
+            return recent;
+        });
+    }
+
     /** 敏感操作（改手机号/注销/首次设密码）前的当前手机号验证码发送上限。 */
     public void checkStepUpSendCode(Long userId) {
         Instant now = Instant.now();

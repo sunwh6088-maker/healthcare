@@ -8,5 +8,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByPhone(String phone);
 
+    Optional<User> findByImportTokenHash(String importTokenHash);
+
     boolean existsByPhoneAndIdNot(String phone, Long id);
 }

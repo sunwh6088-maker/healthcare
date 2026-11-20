@@ -57,12 +57,21 @@ public class IotDeviceService {
         IotDeviceEntity entity = devices.findByProductKeyAndDeviceName(productKey, deviceName)
                 .orElseGet(IotDeviceEntity::new);
         if (entity.getId() != null && !entity.getUserId().equals(userId)) {
-            throw new ApiException(409, "该设备已被其他账号绑定");
+            throw new ApiException(409, "该设备已被其他账号绑定，请先在原账号解绑");
         }
         entity.setUserId(userId);
         entity.setProductKey(productKey);
         entity.setDeviceName(deviceName);
         entity.setDisplayName(displayName);
+        return IotDtos.DeviceDto.from(devices.save(entity));
+    }
+
+    /** 修改设备显示名称。 */
+    @Transactional
+    public IotDtos.DeviceDto rename(Long userId, Long deviceId, String name) {
+        IotDeviceEntity entity = devices.findByIdAndUserId(deviceId, userId)
+                .orElseThrow(() -> new ApiException(404, "设备不存在"));
+        entity.setDisplayName(name.trim());
         return IotDtos.DeviceDto.from(devices.save(entity));
     }
 

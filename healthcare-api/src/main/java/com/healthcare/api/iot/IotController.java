@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -43,6 +44,14 @@ public class IotController {
             @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
             @Valid @RequestBody IotDtos.BindRequest request) {
         return ApiResponse.ok(deviceService.bind(userId, request));
+    }
+
+    @PatchMapping("/devices/{id}")
+    public ApiResponse<IotDtos.DeviceDto> rename(
+            @RequestAttribute(AuthInterceptor.USER_ID_ATTR) Long userId,
+            @PathVariable Long id,
+            @Valid @RequestBody IotDtos.RenameRequest request) {
+        return ApiResponse.ok(deviceService.rename(userId, id, request.name()));
     }
 
     @DeleteMapping("/devices/{id}")

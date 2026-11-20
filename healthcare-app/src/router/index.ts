@@ -70,6 +70,11 @@ const router = createRouter({
     },
     { path: '/help', name: 'help', component: () => import('../views/HelpView.vue') },
     { path: '/about', name: 'about', component: () => import('../views/AboutView.vue') },
+    {
+      path: '/health-import',
+      name: 'health-import',
+      component: () => import('../views/HealthImportView.vue'),
+    },
     // 法律文本（未登录也可访问）
     {
       path: '/terms',
@@ -149,6 +154,7 @@ const pageTitles: Record<string, string> = {
   'account-security': '账户与安全',
   help: '帮助与反馈',
   about: '关于我们',
+  'health-import': '健康数据导入',
   terms: '用户协议',
   privacy: '隐私政策',
   'not-found': '页面不存在',

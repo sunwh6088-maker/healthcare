@@ -41,6 +41,13 @@ public class User {
     @Column(name = "has_avatar", nullable = false)
     private boolean hasAvatar;
 
+    /** 健康数据导入令牌（只存 SHA-256）。 */
+    @Column(name = "import_token_hash", length = 64)
+    private String importTokenHash;
+
+    @Column(name = "import_token_created_at")
+    private Instant importTokenCreatedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -113,6 +120,22 @@ public class User {
 
     public void setHasAvatar(boolean hasAvatar) {
         this.hasAvatar = hasAvatar;
+    }
+
+    public String getImportTokenHash() {
+        return importTokenHash;
+    }
+
+    public void setImportTokenHash(String importTokenHash) {
+        this.importTokenHash = importTokenHash;
+    }
+
+    public Instant getImportTokenCreatedAt() {
+        return importTokenCreatedAt;
+    }
+
+    public void setImportTokenCreatedAt(Instant importTokenCreatedAt) {
+        this.importTokenCreatedAt = importTokenCreatedAt;
     }
 
     public Instant getCreatedAt() {
